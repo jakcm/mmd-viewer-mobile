@@ -884,11 +884,13 @@
 					if (audioElement) audioElement.pause();
 					isPaused = true;
 					setStatus('已暂停', true);
+					if (menuOpen) toggleMenu();
 				} else {
 					// 恢复
 					if (audioElement) audioElement.play();
 					isPaused = false;
 					setStatus('播放中...', true);
+					if (menuOpen) toggleMenu();
 				}
 			}
 
@@ -913,6 +915,7 @@
 
 				setStatus('已停止');
 				updateButtons();
+				if (menuOpen) toggleMenu();
 			}
 
 			// ===== 按钮状态更新 =====
