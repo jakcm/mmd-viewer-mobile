@@ -597,44 +597,65 @@
 				return new Promise((resolve, reject) => {
 								const loader = new MMDLoader();
 
-												// 修复 PMX 文件中的 Windows 路径分隔符（\ → /）
-												if (loader._loadTexture) {
-													const originalLoadTexture = loader._loadTexture.bind(loader);
-													loader._loadTexture = function(filePath, textures, params, onProgress, onError) {
-														const fixedPath = typeof filePath === 'string' ? filePath.replace(/\\/g, '/') : filePath;
-														return originalLoadTexture(fixedPath, textures, params, onProgress, onError);
-													};
-												}
+				// 修复 PMX 文件中的 Windows 路径分隔符（\ → /）
+				if (loader._loadTexture) {
+					const originalLoadTexture = loader._loadTexture.bind(loader);
+					loader._loadTexture = function(filePath, textures, params, onProgress, onError) {
+						const fixedPath = typeof filePath === 'string' ? filePath.replace(/\\/g, '/') : filePath;
+						return originalLoadTexture(fixedPath, textures, params, onProgress, onError);
+					};
+				}
 
-												// 修复 PMX group morph (type 0) 引用越界索引导致 MMDLoader 崩溃的问题
-												// 某些 PMX 模型的 group morph 元素引用了不存在的 morph 索引（如索引 165 但只有 154 个 morph）
-												// MMDLoader 处理 group morph 时: data.morphs[index] 返回 undefined, 然后访问 undefined.type 崩溃
-												const meshBuilder = loader.meshBuilder;
-												if (meshBuilder && meshBuilder.build) {
-												const originalBuild = meshBuilder.build.bind(meshBuilder);
-												meshBuilder.build = function(data, resourcePath, onProgress, onError) {
-													if (data.morphs && data.metadata) {
-														const morphCount = data.morphs.length;
-														for (let i = 0; i < data.morphs.length; i++) {
-															const morph = data.morphs[i];
-															if (morph.type === 0 && morph.elements) {
-																// 过滤掉越界的 group morph 元素索引
-																const validElements = morph.elements.filter(el =>
-																	el.index >= 0 && el.index < morphCount
-																);
-																if (validElements.length !== morph.elements.length) {
-																	console.warn(`Fixed morph ${i} (${morph.name}): removed ${morph.elements.length - validElements.length} out-of-bounds group elements`);
-																	morph.elements = validElements;
-																	morph.elementCount = validElements.length;
-																}
-															}
-														}
-													}
-													return originalBuild(data, resourcePath, onProgress, onError);
-												};
-												}
+				// 修复 MMDLoader 加载某些 PMX 模型时崩溃的问题
+				const meshBuilder = loader.meshBuilder;
+				if (meshBuilder && meshBuilder.build) {
+					const originalBuild = meshBuilder.build.bind(meshBuilder);
+					meshBuilder.build = function(data, resourcePath, onProgress, onError) {
+						try {
+							if (data.metadata) {
+								// 禁用物理引擎（ammo.js 在浏览器中不稳定，且非必需）
+								data.metadata.rigidBodyCount = 0;
+								data.metadata.constraintCount = 0;
+							}
+							if (data.morphs) {
+								const morphCount = data.morphs.length;
+								for (let i = 0; i < data.morphs.length; i++) {
+									const morph = data.morphs[i];
+									if (!morph || !morph.elements) continue;
+									// 同步 elementCount（mmdparser 对 type 4-7 不读取元素，导致 elements 空但 elementCount > 0）
+									if (morph.elementCount > morph.elements.length) {
+										morph.elementCount = morph.elements.length;
+									}
+																																		// 过滤 group morph (type 0) 中越界的 morph 索引
+																																			// 注意：仅对 PMX 格式处理，PMD 的 type 0 是 vertex morph 不是 group morph
+																																			if (data.metadata.format === 'pmx' && morph.type === 0 && morph.elements.length > 0) {
+																											const valid = morph.elements.filter(el => el.index >= 0 && el.index < morphCount);
+																											if (valid.length !== morph.elements.length) {
+																												console.warn('Fixed morph ' + i + ' (' + morph.name + '): removed ' + (morph.elements.length - valid.length) + ' out-of-bounds group elements');
+																												morph.elements = valid;
+																												morph.elementCount = valid.length;
+																											}
+																										}
+																										// PMD 格式: type 0 实际是 vertex morph，但 MMDLoader 把 type 0 当作 group morph 处理
+																										// 将 PMD morph type 从 0 改为 1 (vertex) 以避免 MMDLoader 错误处理
+																										if (data.metadata.format === 'pmd' && morph.type === 0) {
+																											morph.type = 1;
+																										}
+								}
+							}
+						} catch (e) {
+							console.error('Pre-build fix error:', e);
+						}
+						try {
+							return originalBuild(data, resourcePath, onProgress, onError);
+						} catch (e) {
+							console.error('MMDLoader build error:', e.stack || e);
+							throw e;
+						}
+					};
+				}
 
-								const helper = new MMDAnimationHelper({
+				const helper = new MMDAnimationHelper({
 									afterglow: 2.0
 								});
 
