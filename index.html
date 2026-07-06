@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<title>MMD 模型查看器</title>
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+		/>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+				-webkit-tap-highlight-color: transparent;
+			}
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+				overflow: hidden;
+				background: #1a1a2e;
+				color: #fff;
+				user-select: none;
+				-webkit-user-select: none;
+			}
+			canvas {
+				display: block;
+				width: 100vw;
+				height: 100vh;
+				touch-action: none;
+			}
+
+			/* ===== 加载遮罩 ===== */
+			.loading-overlay {
+				position: fixed;
+				inset: 0;
+				background: rgba(0, 0, 0, 0.7);
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				z-index: 1000;
+				transition: opacity 0.4s;
+			}
+			.loading-overlay.hidden {
+				opacity: 0;
+				pointer-events: none;
+			}
+			.loading-overlay .spinner {
+				width: 48px;
+				height: 48px;
+				border: 4px solid rgba(255,255,255,0.2);
+				border-top-color: #6a82fb;
+				border-radius: 50%;
+				animation: spin 0.8s linear infinite;
+				margin-bottom: 16px;
+			}
+			@keyframes spin {
+				to { transform: rotate(360deg); }
+			}
+			.loading-overlay .loading-text {
+				font-size: 16px;
+				color: #e0e0e0;
+			}
+
+			/* ===== 悬浮菜单按钮 ===== */
+			.menu-toggle {
+				position: fixed;
+				top: 16px;
+				right: 16px;
+				width: 48px;
+				height: 48px;
+				border-radius: 50%;
+				background: rgba(30, 30, 60, 0.85);
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				border: 1px solid rgba(255,255,255,0.15);
+				color: #fff;
+				font-size: 24px;
+				cursor: pointer;
+				z-index: 200;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+				box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+				touch-action: manipulation;
+			}
+			.menu-toggle:active {
+				transform: scale(0.92);
+			}
+			.menu-toggle.active {
+				background: rgba(106, 130, 251, 0.9);
+			}
+			.menu-toggle svg {
+				width: 24px;
+				height: 24px;
+			}
+
+			/* ===== 控制面板 ===== */
+			.controls-panel {
+				position: fixed;
+				top: 0;
+				right: 0;
+				width: 320px;
+				max-width: 85vw;
+				height: 100vh;
+				background: rgba(20, 20, 40, 0.92);
+				backdrop-filter: blur(20px);
+				-webkit-backdrop-filter: blur(20px);
+				border-left: 1px solid rgba(255,255,255,0.1);
+				z-index: 150;
+				transform: translateX(100%);
+				transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+				overflow-y: auto;
+				-webkit-overflow-scrolling: touch;
+				padding: 72px 16px 20px 16px;
+			}
+			.controls-panel.open {
+				transform: translateX(0);
+				box-shadow: -8px 0 32px rgba(0,0,0,0.5);
+			}
+			.controls-panel::-webkit-scrollbar {
+				width: 4px;
+			}
+			.controls-panel::-webkit-scrollbar-thumb {
+				background: rgba(255,255,255,0.2);
+				border-radius: 4px;
+			}
+
+			.panel-section {
+				margin-bottom: 20px;
+			}
+			.panel-section .section-title {
+				font-size: 14px;
+				font-weight: 700;
+				color: #8b9bff;
+				margin-bottom: 10px;
+				text-transform: uppercase;
+				letter-spacing: 0.5px;
+			}
+
+			/* ===== 模型选择 ===== */
+			.model-selector {
+				width: 100%;
+				padding: 10px 12px;
+				background: rgba(255,255,255,0.08);
+				border: 1px solid rgba(255,255,255,0.15);
+				border-radius: 10px;
+				color: #fff;
+				font-size: 14px;
+				cursor: pointer;
+				appearance: none;
+				-webkit-appearance: none;
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b9bff' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+				background-repeat: no-repeat;
+				background-position: right 10px center;
+				padding-right: 36px;
+			}
+			.model-selector option {
+				background: #1a1a2e;
+				color: #fff;
+			}
+
+			/* ===== 文件上传 ===== */
+			.upload-btn {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+				width: 100%;
+				padding: 10px 12px;
+				background: rgba(255,255,255,0.06);
+				border: 1px dashed rgba(139, 155, 255, 0.5);
+				border-radius: 10px;
+				color: #8b9bff;
+				font-size: 13px;
+				cursor: pointer;
+				margin-top: 8px;
+				transition: background 0.2s;
+			}
+			.upload-btn:active {
+				background: rgba(106, 130, 251, 0.15);
+			}
+			.upload-btn svg {
+				width: 18px;
+				height: 18px;
+			}
+			.upload-btn input {
+				display: none;
+			}
+
+			/* ===== 播放控制按钮 ===== */
+			.playback-controls {
+				display: flex;
+				gap: 8px;
+			}
+			.playback-controls button {
+				flex: 1;
+				padding: 12px 0;
+				border: none;
+				border-radius: 10px;
+				cursor: pointer;
+				font-size: 14px;
+				font-weight: 700;
+				transition: transform 0.15s, opacity 0.2s;
+				touch-action: manipulation;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 4px;
+			}
+			.playback-controls button:active {
+				transform: scale(0.93);
+			}
+			.playback-controls button:disabled {
+				opacity: 0.4;
+				cursor: not-allowed;
+			}
+			.playback-controls button svg {
+				width: 18px;
+				height: 18px;
+			}
+			#playBtn {
+				background: linear-gradient(145deg, #6a82fb, #4a62db);
+				color: white;
+			}
+			#pauseBtn {
+				background: rgba(255,255,255,0.1);
+				color: #fff;
+			}
+			#stopBtn {
+				background: rgba(255,80,80,0.2);
+				color: #ff6b6b;
+				border: 1px solid rgba(255,80,80,0.3);
+			}
+
+			/* ===== 音乐控制 ===== */
+			.music-info {
+				font-size: 13px;
+				color: #aaa;
+				margin-top: 8px;
+				padding: 8px 12px;
+				background: rgba(255,255,255,0.04);
+				border-radius: 8px;
+			}
+
+			/* ===== 状态指示器 ===== */
+			.status-bar {
+				position: fixed;
+				bottom: 16px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: rgba(20, 20, 40, 0.85);
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				padding: 8px 20px;
+				border-radius: 20px;
+				font-size: 13px;
+				color: #ccc;
+				z-index: 100;
+				white-space: nowrap;
+				max-width: 90vw;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				border: 1px solid rgba(255,255,255,0.1);
+				transition: opacity 0.3s;
+				pointer-events: none;
+			}
+			.status-bar.fade {
+				opacity: 0;
+			}
+
+			/* ===== 移动端适配 ===== */
+			@media (max-width: 600px) {
+				.controls-panel {
+					width: 85vw;
+				}
+				.menu-toggle {
+					width: 44px;
+					height: 44px;
+					font-size: 22px;
+				}
+			}
+
+			/* ===== 遮罩层 ===== */
+			.backdrop {
+				position: fixed;
+				inset: 0;
+				background: rgba(0,0,0,0.3);
+				z-index: 140;
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.3s;
+			}
+			.backdrop.show {
+				opacity: 1;
+				pointer-events: auto;
+			}
+		</style>
+	</head>
+
+	<body>
+		<!-- 加载遮罩 -->
+		<div class="loading-overlay" id="loadingOverlay">
+			<div class="spinner"></div>
+			<div class="loading-text" id="loadingText">正在加载资源...</div>
+		</div>
+
+		<!-- 悬浮菜单按钮 -->
+		<button class="menu-toggle" id="menuToggle" aria-label="菜单">
+			<svg id="menuIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+				<line x1="3" y1="6" x2="21" y2="6"/>
+				<line x1="3" y1="12" x2="21" y2="12"/>
+				<line x1="3" y1="18" x2="21" y2="18"/>
+			</svg>
+		</button>
+
+		<!-- 遮罩 -->
+		<div class="backdrop" id="backdrop"></div>
+
+		<!-- 控制面板 -->
+		<div class="controls-panel" id="controlsPanel">
+			<!-- 模型选择 -->
+			<div class="panel-section">
+				<div class="section-title">模型选择</div>
+				<select class="model-selector" id="modelSelector">
+					<option value="">-- 请选择模型 --</option>
+				</select>
+				<label class="upload-btn" for="mmdFileInput">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+						<polyline points="17 8 12 3 7 8"/>
+						<line x1="12" y1="3" x2="12" y2="15"/>
+					</svg>
+					<span>导入本地 MMD 模型</span>
+					<input type="file" id="mmdFileInput" accept=".pmd,.pmx,.pmc" />
+				</label>
+			</div>
+
+			<!-- 播放控制 -->
+			<div class="panel-section">
+				<div class="section-title">播放控制</div>
+				<div class="playback-controls">
+					<button id="playBtn" disabled>
+						<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+						播放
+					</button>
+					<button id="pauseBtn" disabled>
+						<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+						暂停
+					</button>
+					<button id="stopBtn" disabled>
+						<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+						停止
+					</button>
+				</div>
+				<div class="music-info" id="musicInfo">🎵 wavefile_short.mp3</div>
+			</div>
+		</div>
+
+		<!-- 状态栏 -->
+		<div class="status-bar" id="statusBar">就绪</div>
+
+		<!-- Ammo.js 物理引擎（全局脚本，MMD 物理模拟依赖） -->
+		<script src="./libs/ammo.js"></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
+					"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
+				}
+			}
+		</script>
+
+		<script type="module">
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
+			import { MMDAnimationHelper } from 'three/addons/animation/MMDAnimationHelper.js';
+			import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
+
+			// ===== DOM 元素 =====
+			const loadingOverlay = document.getElementById('loadingOverlay');
+			const loadingText = document.getElementById('loadingText');
+			const menuToggle = document.getElementById('menuToggle');
+			const menuIcon = document.getElementById('menuIcon');
+			const controlsPanel = document.getElementById('controlsPanel');
+			const backdrop = document.getElementById('backdrop');
+			const modelSelector = document.getElementById('modelSelector');
+			const mmdFileInput = document.getElementById('mmdFileInput');
+			const playBtn = document.getElementById('playBtn');
+			const pauseBtn = document.getElementById('pauseBtn');
+			const stopBtn = document.getElementById('stopBtn');
+			const statusBar = document.getElementById('statusBar');
+			const musicInfo = document.getElementById('musicInfo');
+
+			// ===== 状态管理 =====
+			let currentMesh = null;
+			let currentHelper = null;
+			let currentMixer = null;
+			let isReady = false;
+			let isPlaying = false;
+			let isPaused = false;
+			let audioListener = null;
+			let audioElement = null;
+
+			// ===== 内置模型列表 =====
+			const builtInModels = [
+				{
+					name: '初音ミク (miku_v2.pmd)',
+					url: './models/miku_v2.pmd',
+					type: 'pmd'
+				},
+				{
+					name: 'YYB式幻晓伊ver1.0',
+					url: './models/YYB式幻晓伊ver1.0.pmx',
+					type: 'pmx'
+				}
+			];
+
+			// ===== 舞蹈和音频资源 =====
+			const vmdFile = './vmd/wavefile_v2.vmd';
+			const audioFile = './audio/wavefile_short.mp3';
+			const audioDelayTime = 160 * 1 / 30; // 原始 app 的延迟参数
+
+			// ===== Three.js 场景设置 =====
+			const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+			renderer.shadowMap.enabled = true;
+			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+			document.body.appendChild(renderer.domElement);
+
+			// OutlineEffect 用于 MMD 描边渲染
+			const effect = new OutlineEffect(renderer, { defaultThickness: 0.01 });
+
+			const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
+			camera.position.set(0, 15, 40);
+
+			const controls = new OrbitControls(camera, renderer.domElement);
+			controls.screenSpacePanning = true;
+			controls.target.set(0, 10, 0);
+			controls.minDistance = 5;
+			controls.maxDistance = 100;
+			controls.maxPolarAngle = Math.PI * 0.55; // 防止看到地面下方
+			controls.update();
+
+			// 移动端触摸优化
+			controls.enableDamping = true;
+			controls.dampingFactor = 0.08;
+			controls.touches = {
+				ONE: THREE.TOUCH.ROTATE,
+				TWO: THREE.TOUCH.DOLLY_PAN
+			};
+
+			const scene = new THREE.Scene();
+			scene.background = new THREE.Color(0x1a1a2e);
+
+			// ===== 光照系统 =====
+			// 聚光灯（跟随模型）
+			const spotLight = new THREE.SpotLight(0x223344, 50);
+			spotLight.position.set(5, 20, 15);
+			spotLight.angle = 0.8;
+			spotLight.penumbra = 0.8;
+			spotLight.castShadow = true;
+			spotLight.shadow.bias = -0.001;
+			scene.add(spotLight);
+			scene.add(spotLight.target);
+
+			// 方向光（主光源 + 阴影）
+			const directionalLight = new THREE.DirectionalLight(0x999999, 3);
+			directionalLight.position.set(-15, 15, 20);
+			directionalLight.castShadow = true;
+			directionalLight.shadow.mapSize.width = 1024;
+			directionalLight.shadow.mapSize.height = 1024;
+			directionalLight.shadow.camera.right = 20;
+			directionalLight.shadow.camera.top = 20;
+			directionalLight.shadow.camera.left = -20;
+			directionalLight.shadow.camera.bottom = -20;
+			directionalLight.shadow.bias = -0.001;
+			scene.add(directionalLight);
+
+			// 环境光
+			const ambientLight = new THREE.AmbientLight(0x404060, 1.5);
+			scene.add(ambientLight);
+
+			// ===== 地面 =====
+			const groundGeo = new THREE.CircleGeometry(50, 32);
+			const groundMat = new THREE.MeshPhongMaterial({ color: 0x444444, emissive: 0x002222, side: THREE.FrontSide });
+			const ground = new THREE.Mesh(groundGeo, groundMat);
+			ground.rotation.x = -Math.PI / 2;
+			ground.receiveShadow = true;
+			scene.add(ground);
+
+			// 网格辅助线
+			const gridHelper = new THREE.GridHelper(50, 25, 0x444466, 0x333355);
+			gridHelper.position.y = 0.01;
+			scene.add(gridHelper);
+
+			// ===== UI 工具函数 =====
+			let statusTimeout = null;
+			function setStatus(text, persistent = false) {
+				statusBar.textContent = text;
+				statusBar.classList.remove('fade');
+				if (statusTimeout) clearTimeout(statusTimeout);
+				if (!persistent) {
+					statusTimeout = setTimeout(() => {
+						statusBar.classList.add('fade');
+					}, 3000);
+				}
+			}
+
+			function showLoading(text) {
+				loadingText.textContent = text;
+				loadingOverlay.classList.remove('hidden');
+			}
+
+			function hideLoading() {
+				loadingOverlay.classList.add('hidden');
+			}
+
+			// ===== 菜单开关 =====
+			let menuOpen = false;
+			function toggleMenu() {
+				menuOpen = !menuOpen;
+				controlsPanel.classList.toggle('open', menuOpen);
+				backdrop.classList.toggle('show', menuOpen);
+				menuToggle.classList.toggle('active', menuOpen);
+				if (menuOpen) {
+					menuIcon.innerHTML = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+				} else {
+					menuIcon.innerHTML = '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>';
+				}
+			}
+			menuToggle.addEventListener('click', (e) => {
+				e.stopPropagation();
+				toggleMenu();
+			});
+			backdrop.addEventListener('click', toggleMenu);
+
+			// ===== 填充模型选择器 =====
+			builtInModels.forEach((model, index) => {
+				const option = document.createElement('option');
+				option.value = index;
+				option.textContent = model.name;
+				modelSelector.appendChild(option);
+			});
+
+			// ===== MMD 模型加载 =====
+			async function loadMMDModel(modelUrl, modelName) {
+				showLoading(`正在加载模型: ${modelName}...`);
+				setStatus(`正在加载: ${modelName}...`, true);
+
+				// 清理旧模型
+				if (currentMesh) {
+					scene.remove(currentMesh);
+					// 释放几何体和材质
+					currentMesh.traverse((obj) => {
+						if (obj.geometry) obj.geometry.dispose();
+						if (obj.material) {
+							if (Array.isArray(obj.material)) {
+								obj.material.forEach(m => {
+									if (m.map) m.map.dispose();
+									m.dispose();
+								});
+							} else {
+								if (obj.material.map) obj.material.map.dispose();
+								obj.material.dispose();
+							}
+						}
+					});
+					currentMesh = null;
+				}
+
+				// 清理旧的 helper 和 audio
+				if (currentHelper) {
+					currentHelper = null;
+				}
+				if (audioElement) {
+					audioElement.pause();
+					audioElement = null;
+				}
+				if (audioListener) {
+					audioListener = null;
+				}
+				isReady = false;
+				isPlaying = false;
+				isPaused = false;
+				updateButtons();
+
+				return new Promise((resolve, reject) => {
+					const loader = new MMDLoader();
+					const helper = new MMDAnimationHelper({
+						afterglow: 2.0
+					});
+
+					// 加载模型 + VMD 动画
+					loader.loadWithAnimation(
+						modelUrl,
+						[vmdFile],
+						(mmd) => {
+							const mesh = mmd.mesh;
+							mesh.castShadow = true;
+							mesh.receiveShadow = true;
+
+							// 降低材质发光强度
+							const materials = mesh.material;
+							for (let i = 0; i < materials.length; i++) {
+								if (materials[i].emissive) {
+									materials[i].emissive.multiplyScalar(0.2);
+								}
+							}
+
+							scene.add(mesh);
+							currentMesh = mesh;
+
+							// 设置动画
+							helper.add(mesh, {
+								animation: mmd.animation,
+								physics: true
+							});
+
+							// 加载音频（手动 fetch + decode，处理 AudioContext 挂起问题）
+							fetch(audioFile)
+								.then(response => response.arrayBuffer())
+								.then(arrayBuffer => {
+									const listener = new THREE.AudioListener();
+									listener.position.z = 1;
+
+									const audio = new THREE.Audio(listener);
+									// 手动解码音频
+									const ctx = listener.context;
+									return new Promise((resolveDecode, rejectDecode) => {
+										ctx.decodeAudioData(arrayBuffer, (buffer) => {
+											resolveDecode(buffer);
+										}, (err) => {
+											rejectDecode(err);
+										});
+									}).then(buffer => {
+										audio.setBuffer(buffer);
+
+										helper.add(audio, {
+											audio: audio,
+											delayTime: audioDelayTime
+										});
+
+										scene.add(audio);
+										scene.add(listener);
+
+										audioElement = audio;
+										audioListener = listener;
+										currentHelper = helper;
+										isReady = true;
+
+										hideLoading();
+										setStatus(`${modelName} 加载完成，点击播放`);
+										updateButtons();
+										resolve();
+									});
+								})
+								.catch(error => {
+									console.error('Audio load error:', error);
+									// 即使音频加载失败，也允许播放动画
+									currentHelper = helper;
+									isReady = true;
+									hideLoading();
+									setStatus(`${modelName} 加载完成（音频不可用）`);
+									updateButtons();
+									resolve();
+								});
+						},
+						(progress) => {
+							if (progress.total > 0) {
+								const percent = (100.0 * (progress.loaded / progress.total)).toFixed(0);
+								loadingText.textContent = `正在加载模型... ${percent}%`;
+							}
+						},
+						(error) => {
+							console.error('Model load error:', error);
+							hideLoading();
+							setStatus(`模型加载失败: ${error.message || error}`);
+							reject(error);
+						}
+					);
+				});
+			}
+
+			// ===== 播放控制 =====
+			function playAnimation() {
+				if (!isReady || !currentHelper) {
+					setStatus('请先加载模型');
+					return;
+				}
+
+				if (isPlaying && isPaused) {
+					// 恢复暂停
+					if (audioElement) audioElement.play();
+					isPaused = false;
+					setStatus('播放中...', true);
+					if (menuOpen) toggleMenu();
+					return;
+				}
+
+				if (isPlaying) {
+					setStatus('已在播放中');
+					return;
+				}
+
+				// 开始播放
+				isPlaying = true;
+				isPaused = false;
+
+				// 播放音频（浏览器需要用户交互才能播放音频）
+				if (audioElement && !audioElement.isPlaying) {
+					audioElement.play();
+				}
+
+				setStatus('播放中...', true);
+				if (menuOpen) toggleMenu();
+			}
+
+			function pauseAnimation() {
+				if (!isPlaying) return;
+
+				if (!isPaused) {
+					// 暂停音频
+					if (audioElement) audioElement.pause();
+					isPaused = true;
+					setStatus('已暂停', true);
+				} else {
+					// 恢复
+					if (audioElement) audioElement.play();
+					isPaused = false;
+					setStatus('播放中...', true);
+				}
+			}
+
+			function stopAnimation() {
+				if (!isPlaying && !isPaused) return;
+
+				isPlaying = false;
+				isPaused = false;
+
+				// 停止音频
+				if (audioElement) {
+					audioElement.stop();
+				}
+
+				// 重置动画到起点
+				if (currentHelper) {
+					const meshData = currentHelper.objects.get('mesh');
+					if (meshData && meshData.mixer) {
+						meshData.mixer.setTime(0);
+					}
+				}
+
+				setStatus('已停止');
+				updateButtons();
+			}
+
+			// ===== 按钮状态更新 =====
+			function updateButtons() {
+				playBtn.disabled = !isReady;
+				pauseBtn.disabled = !isReady;
+				stopBtn.disabled = !isReady;
+			}
+
+			// ===== 事件监听 =====
+			playBtn.addEventListener('click', playAnimation);
+			pauseBtn.addEventListener('click', pauseAnimation);
+			stopBtn.addEventListener('click', stopAnimation);
+
+			// 模型选择
+			modelSelector.addEventListener('change', async () => {
+				const index = parseInt(modelSelector.value);
+				if (isNaN(index)) return;
+				const model = builtInModels[index];
+				await loadMMDModel(model.url, model.name);
+			});
+
+			// 本地文件上传
+			mmdFileInput.addEventListener('change', async (e) => {
+				const file = e.target.files[0];
+				if (!file) return;
+
+				const url = URL.createObjectURL(file);
+				const optionName = `本地: ${file.name}`;
+
+				// 添加到选择器
+				const option = document.createElement('option');
+				option.value = url;
+				option.textContent = optionName;
+				modelSelector.appendChild(option);
+				modelSelector.value = url;
+
+				await loadMMDModel(url, optionName);
+			});
+
+			// 窗口大小调整
+			window.addEventListener('resize', () => {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+				effect.setSize(window.innerWidth, window.innerHeight);
+			});
+
+			// ===== 动画循环 =====
+			const clock = new THREE.Clock();
+
+			function animate() {
+				requestAnimationFrame(animate);
+
+				const delta = clock.getDelta();
+
+				// 更新 MMD 动画（仅在播放状态）
+				if (isReady && currentHelper && isPlaying && !isPaused) {
+					currentHelper.update(delta);
+				}
+
+				// 聚光灯跟随模型
+				if (currentMesh) {
+					// 跟踪模型中心位置
+					spotLight.target.position.set(
+						currentMesh.position.x,
+						currentMesh.position.y + 10,
+						currentMesh.position.z
+					);
+				}
+
+				controls.update();
+
+				// 使用 OutlineEffect 渲染
+				effect.render(scene, camera);
+			}
+
+			animate();
+
+			// ===== 初始化 =====
+			(async () => {
+				// 等待 Ammo.js 加载
+				if (typeof Ammo === 'undefined') {
+					showLoading('正在加载物理引擎...');
+					await new Promise((resolve) => {
+						const checkAmmo = setInterval(() => {
+							if (typeof Ammo !== 'undefined') {
+								clearInterval(checkAmmo);
+								resolve();
+							}
+						}, 100);
+					});
+				}
+
+				// 初始化 Ammo
+				await new Promise((resolve) => {
+					if (typeof Ammo === 'function') {
+						Ammo().then(() => resolve());
+					} else {
+						resolve();
+					}
+				});
+
+				// 默认加载第一个模型
+				modelSelector.value = '0';
+				await loadMMDModel(builtInModels[0].url, builtInModels[0].name);
+				updateButtons();
+			})();
+		</script>
+	</body>
+</html>
