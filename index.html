@@ -622,8 +622,11 @@
 			composer.setSize(window.innerWidth, window.innerHeight);
 			composer.addPass(bloomPass);
 			composer.addPass(copyPass);
-			composer2 = new EffectComposer(renderer);
-			composer2.readBuffer = composer.readBuffer;
+			// 监视器使用独立的渲染目标
+			const rt2 = new THREE.WebGLRenderTarget(
+				window.innerWidth, window.innerHeight
+			);
+			composer2 = new EffectComposer(renderer, rt2);
 			composer2.setSize(window.innerWidth, window.innerHeight);
 			composer2.addPass(new ShaderPass(CopyShader));
 
@@ -1156,11 +1159,10 @@
 				monitorsGroup.visible = false;
 				renderer.render(scene, camera, composer.readBuffer);
 
-				// Pass 3: 复制到 composer2（监视器纹理源）
-				monitorShaderMat.uniforms.tDiffuse.value = composer2.writeBuffer.texture;
-				composer2.render();
+								// Pass 3: 设置监视器纹理（从 composer 的读缓冲区取场景画面）
+								monitorShaderMat.uniforms.tDiffuse.value = composer.readBuffer.texture;
 
-				// Pass 4: 渲染监视器
+								// Pass 4: 渲染监视器
 				mainGroup.visible = false;
 				beamsGroup.visible = false;
 				monitorsGroup.visible = true;
