@@ -364,30 +364,11 @@
 		<!-- Ammo.js 物理引擎（全局脚本，MMD 物理模拟依赖） -->
 		<script src="./libs/ammo.js"></script>
 
-		<!-- 监视器 Shader 材质 -->
-		<script id="vertexShader" type="x-shader/x-vertex">
-			varying vec2 vUv;
-			void main() {
-				vUv = uv;
-				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-			}
-		</script>
-
-		<script id="fragmentShader" type="x-shader/x-fragment">
-			varying vec2 vUv;
-			uniform float strength;
-			uniform sampler2D tDiffuse;
-			void main() {
-				float n = 50.0 / strength;
-				gl_FragColor = texture2D( tDiffuse, floor( vUv * n ) / n );
-			}
-		</script>
-
-		<script type="importmap">
+<script type="importmap">
 			{
 				"imports": {
-					"three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
-					"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
+					"three": "https://unpkg.com/three@0.171.0/build/three.module.js",
+					"three/addons/": "https://unpkg.com/three@0.171.0/examples/jsm/"
 				}
 			}
 		</script>
@@ -398,11 +379,6 @@
 			import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
 			import { MMDAnimationHelper } from 'three/addons/animation/MMDAnimationHelper.js';
 			import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
-			import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-			import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-			import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-			import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-			import { CopyShader } from 'three/addons/shaders/CopyShader.js';
 
 			// ===== DOM 元素 =====
 			const loadingOverlay = document.getElementById('loadingOverlay');
@@ -429,16 +405,8 @@
 			let audioListener = null;
 			let audioElement = null;
 
-			// ===== 舞台 3D 元素（组，稍后添加到 scene） =====
-			const stageGroup = new THREE.Group();
-			const mainGroup = new THREE.Group();
-			const beamsGroup = new THREE.Group();
-			const monitorsGroup = new THREE.Group();
-			let mikuMesh = null;
-			let composer, composer2, bloomPass;
-			let monitorShaderMat;
-			beamsGroup.visible = false;
-			monitorsGroup.visible = false;
+			// ===== 舞台 3D 组（异步构建） =====
+			let stageGroup, beamsGroup, monitorsGroup;
 
 			// ===== 内置模型列表 =====
 			const builtInModels = [
@@ -483,8 +451,7 @@
 			document.body.appendChild(renderer.domElement);
 
 			// OutlineEffect 用于 MMD 描边渲染
-			// ===== 场景与舞台设置（全部包 try/catch 防崩溃） =====
-			try {			const effect = new OutlineEffect(renderer, { defaultThickness: 0.01 });
+			const effect = new OutlineEffect(renderer, { defaultThickness: 0.01 });
 
 			const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
 			camera.position.set(0, 15, 40);
@@ -537,88 +504,67 @@
 			scene.add(ambientLight);
 
 			// ===== 将舞台组添加到场景 =====
-			scene.add(stageGroup);
-			stageGroup.add(mainGroup);
-			stageGroup.add(beamsGroup);
-			stageGroup.add(monitorsGroup);
+			// ===== 地面 =====
+			const ground = new THREE.Mesh(
+				new THREE.CircleGeometry(50, 32),
+				new THREE.MeshPhongMaterial({ color: 0x444444, emissive: 0x002222, side: THREE.FrontSide })
+			);
+			ground.rotation.x = -Math.PI / 2;
+			ground.receiveShadow = true;
+			scene.add(ground);
 
-			// ===== 舞台背景 + 监视器 + Bloom（用 try/catch 防止单点崩溃） =====
-			try {
-				// 线框球体（巨大白色线框包围场景）
-				mainGroup.add(new THREE.Mesh(
-					new THREE.SphereGeometry(200, 32),
-					new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
-				));
+			// 网格辅助线
+			const gridHelper = new THREE.GridHelper(50, 25, 0x444466, 0x333355);
+			gridHelper.position.y = 0.01;
+			scene.add(gridHelper);
 
-				// 地面
-				const groundGeo = new THREE.CircleGeometry(50, 32);
-				const groundMat = new THREE.MeshPhongMaterial({ color: 0x444444, emissive: 0x002222, side: THREE.FrontSide });
-				const ground = new THREE.Mesh(groundGeo, groundMat);
-				ground.rotation.x = -Math.PI / 2;
-				ground.receiveShadow = true;
-				mainGroup.add(ground);
+			// ===== 异步构建舞台效果（延时执行，不阻塞页面） =====
+			setTimeout(() => {
+				try {
+					stageGroup = new THREE.Group();
+					beamsGroup = new THREE.Group();
+					monitorsGroup = new THREE.Group();
+					beamsGroup.visible = false;
+					monitorsGroup.visible = false;
+					scene.add(stageGroup);
+					stageGroup.add(beamsGroup);
+					stageGroup.add(monitorsGroup);
 
-				// 监视器 Shader
-				monitorShaderMat = new THREE.ShaderMaterial({
-					uniforms: { strength: { value: 0.20 }, tDiffuse: { value: null } },
-					vertexShader: document.getElementById('vertexShader').textContent,
-					fragmentShader: document.getElementById('fragmentShader').textContent
-				});
+					// 线框球体
+					stageGroup.add(new THREE.Mesh(
+						new THREE.SphereGeometry(200, 32),
+						new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
+					));
 
-				function createMonitor() {
-					const geo = new THREE.PlaneGeometry(100, 40);
-					const mesh = new THREE.Mesh(geo, monitorShaderMat);
-					const edge = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-					edge.scale.multiplyScalar(1.01);
-					edge.position.z -= 0.01;
-					mesh.add(edge);
-					return mesh;
+					// 3 块监视器
+					const monitorMat = new THREE.MeshBasicMaterial({ color: 0x2244aa, transparent: true, opacity: 0.3 });
+					const edgeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
+					function createMonitor() {
+						const g = new THREE.PlaneGeometry(100, 40);
+						const m = new THREE.Mesh(g, monitorMat);
+						const e = new THREE.Mesh(g, edgeMat);
+						e.scale.multiplyScalar(1.02);
+						e.position.z += 0.01;
+						m.add(e);
+						return m;
+					}
+					let t = createMonitor(); t.position.set(0, 25, -50); t.rotation.set(Math.PI, Math.PI, Math.PI); monitorsGroup.add(t);
+					t = createMonitor(); t.position.set(-70, 25, 0); t.rotation.set(Math.PI, 110*Math.PI/180, Math.PI); monitorsGroup.add(t);
+					t = createMonitor(); t.position.set(70, 25, 0); t.rotation.set(Math.PI, -110*Math.PI/180, Math.PI); monitorsGroup.add(t);
+
+					// 光束粒子
+					const beamGeo = new THREE.SphereGeometry(0.05, 4);
+					for (let i = 0; i < 200; i++) {
+						beamsGroup.add(new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({
+							color: 0xffff88, opacity: 0.25 - 0.25/200*i, transparent: true
+						})));
+					}
+
+					console.log('Stage effects built successfully');
+				} catch(e) {
+					console.warn('Stage effects skipped (non-critical):', e.message);
 				}
-
-				let tv = createMonitor();
-				tv.position.y = 25; tv.position.z = -50;
-				tv.rotation.set(Math.PI, Math.PI, Math.PI);
-				monitorsGroup.add(tv);
-
-				tv = createMonitor();
-				tv.position.x = -70; tv.position.y = 25;
-				tv.rotation.set(Math.PI, 110 * Math.PI / 180, Math.PI);
-				monitorsGroup.add(tv);
-
-				tv = createMonitor();
-				tv.position.x = 70; tv.position.y = 25;
-				tv.rotation.set(Math.PI, -110 * Math.PI / 180, Math.PI);
-				monitorsGroup.add(tv);
-
-				// 光束粒子
-				const beamGeo = new THREE.SphereGeometry(0.05, 4);
-				for (let i = 0; i < 200; i++) {
-					beamsGroup.add(new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({
-						color: 0xffff88,
-						opacity: 0.25 - 0.25 / 200 * i,
-						transparent: true
-					})));
-				}
-
-				// Bloom 辉光
-				bloomPass = new UnrealBloomPass(
-					new THREE.Vector2(window.innerWidth, window.innerHeight), 0.6, 0.4, 0.2
-				);
-				const copyPass = new ShaderPass(CopyShader);
-				copyPass.renderToScreen = true;
-				composer = new EffectComposer(renderer);
-				composer.setSize(window.innerWidth, window.innerHeight);
-				composer.addPass(bloomPass);
-				composer.addPass(copyPass);
-
-				composer2 = new EffectComposer(renderer, new THREE.WebGLRenderTarget(
-					window.innerWidth, window.innerHeight
-				));
-				composer2.setSize(window.innerWidth, window.innerHeight);
-				composer2.addPass(new ShaderPass(CopyShader));
-			} catch (e) {
-				console.warn('Stage/Bloom setup failed (stage effects disabled):', e.message || e);
-			}			// ===== UI 工具函数 =====
+			}, 1000);			// ===== UI 工具函数 =====
 			let statusTimeout = null;
 			function setStatus(text, persistent = false) {
 				statusBar.textContent = text;
@@ -659,9 +605,7 @@
 			});
 			backdrop.addEventListener('click', toggleMenu);
 
-			} catch (e) {
-				console.error('Scene setup error:', e.message || e);
-			}			// ===== 填充模型选择器 =====
+			// ===== 填充模型选择器 =====
 			builtInModels.forEach((model, index) => {
 				const option = document.createElement('option');
 				option.value = index;
@@ -793,7 +737,7 @@
 												}
 											}
 
-											mainGroup.add(mesh);
+											scene.add(mesh);
 											currentMesh = mesh;
 
 											// 设置动画（尝试启用物理，失败时降级为无物理）
@@ -873,7 +817,7 @@
 													(mesh) => {
 														mesh.castShadow = true;
 														mesh.receiveShadow = true;
-														mainGroup.add(mesh);
+														scene.add(mesh);
 														currentMesh = mesh;
 
 														// 单独加载 VMD 动画
@@ -1074,31 +1018,10 @@
 				camera.updateProjectionMatrix();
 				renderer.setSize(window.innerWidth, window.innerHeight);
 				effect.setSize(window.innerWidth, window.innerHeight);
-				composer.setSize(window.innerWidth, window.innerHeight);
-				composer2.setSize(window.innerWidth, window.innerHeight);
+
 			});
 
-			// ===== 光束追踪 =====
-			function updateBeams() {
-				if (!mikuMesh) return;
-				// 使用模型骨骼第 110 号位置作为光束追踪点
-				const bones = mikuMesh.skeleton ? mikuMesh.skeleton.bones : null;
-				if (!bones || bones.length <= 110) return;
-				const pos = bones[110].getWorldPosition(new THREE.Vector3());
-				const num = 20;
-				for (let i = beamsGroup.children.length - 1; i > 0; i--) {
-					if (i < num) {
-						beamsGroup.children[i].position.copy(
-							beamsGroup.children[0].position
-						).lerp(pos, i / num);
-					} else {
-						beamsGroup.children[i].position.copy(
-							beamsGroup.children[i - num].position
-						);
-					}
-				}
-				beamsGroup.children[0].position.copy(pos);
-			}
+
 
 			// ===== 动画循环（多 Pass 渲染） =====
 			const clock = new THREE.Clock();
@@ -1111,7 +1034,6 @@
 				// 更新 MMD 动画（仅在播放状态）
 				if (isReady && currentHelper && isPlaying && !isPaused) {
 					currentHelper.update(delta);
-					mikuMesh = currentMesh;
 				}
 
 				// 聚光灯跟随模型
@@ -1123,52 +1045,11 @@
 					);
 				}
 
-				// 更新光束粒子
-				if (isPlaying && mikuMesh) {
-					updateBeams();
-				}
-
 				controls.update();
 
 				// ===== 渲染（多 Pass 舞台效果 / 简单回退） =====
-				if (composer && bloomPass) {
-					// Pass 1: 渲染主场景（模型 + 地面 + 线框球体）
-					renderer.autoClear = true;
-					renderer.shadowMap.enabled = true;
-					scene.autoUpdate = true;
-					mainGroup.visible = true;
-					beamsGroup.visible = false;
-					monitorsGroup.visible = false;
-					effect.render(scene, camera, composer.readBuffer);
-
-					// Pass 2: 渲染光束粒子
-					renderer.autoClear = false;
-					renderer.shadowMap.enabled = false;
-					scene.autoUpdate = false;
-					mainGroup.visible = false;
-					beamsGroup.visible = true;
-					monitorsGroup.visible = false;
-					renderer.render(scene, camera, composer.readBuffer);
-
-					// Pass 3: 设置监视器纹理
-					if (monitorShaderMat) monitorShaderMat.uniforms.tDiffuse.value = composer.readBuffer.texture;
-
-					// Pass 4: 渲染监视器
-					mainGroup.visible = false;
-					beamsGroup.visible = false;
-					monitorsGroup.visible = true;
-					renderer.render(scene, camera, composer.readBuffer);
-
-					// Pass 5: Bloom 输出到屏幕
-					composer.render();
-				} else {
-					// 简单模式：直接渲染
-					mainGroup.visible = true;
-					beamsGroup.visible = false;
-					monitorsGroup.visible = false;
-					effect.render(scene, camera);
-				}
-			}
+				// ===== 直接渲染 =====
+				effect.render(scene, camera);	}
 
 			animate();
 
