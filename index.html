@@ -541,96 +541,83 @@
 			stageGroup.add(beamsGroup);
 			stageGroup.add(monitorsGroup);
 
-			// ===== 舞台背景：线框球体 =====
-			const stageSphere = new THREE.Mesh(
-				new THREE.SphereGeometry(200, 32),
-				new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
-			);
-			mainGroup.add(stageSphere);
+			// ===== 舞台背景 + 监视器 + Bloom（用 try/catch 防止单点崩溃） =====
+			try {
+				// 线框球体（巨大白色线框包围场景）
+				mainGroup.add(new THREE.Mesh(
+					new THREE.SphereGeometry(200, 32),
+					new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
+				));
 
-			// ===== 地面 =====
-			const groundGeo = new THREE.CircleGeometry(50, 32);
-			const groundMat = new THREE.MeshPhongMaterial({ color: 0x444444, emissive: 0x002222, side: THREE.FrontSide });
-			const ground = new THREE.Mesh(groundGeo, groundMat);
-			ground.rotation.x = -Math.PI / 2;
-			ground.receiveShadow = true;
-			mainGroup.add(ground);
+				// 地面
+				const groundGeo = new THREE.CircleGeometry(50, 32);
+				const groundMat = new THREE.MeshPhongMaterial({ color: 0x444444, emissive: 0x002222, side: THREE.FrontSide });
+				const ground = new THREE.Mesh(groundGeo, groundMat);
+				ground.rotation.x = -Math.PI / 2;
+				ground.receiveShadow = true;
+				mainGroup.add(ground);
 
-			// ===== 监视器（3 块大屏幕） =====
-			monitorShaderMat = new THREE.ShaderMaterial({
-				uniforms: {
-					strength: { value: 0.20 },
-					tDiffuse: { value: null }
-				},
-				vertexShader: document.getElementById('vertexShader').textContent,
-				fragmentShader: document.getElementById('fragmentShader').textContent
-			});
+				// 监视器 Shader
+				monitorShaderMat = new THREE.ShaderMaterial({
+					uniforms: { strength: { value: 0.20 }, tDiffuse: { value: null } },
+					vertexShader: document.getElementById('vertexShader').textContent,
+					fragmentShader: document.getElementById('fragmentShader').textContent
+				});
 
-			function createMonitor() {
-				const geo = new THREE.PlaneGeometry(100, 40);
-				const mesh = new THREE.Mesh(geo, monitorShaderMat);
-				const edge = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-				edge.scale.multiplyScalar(1.01);
-				edge.position.z -= 0.01;
-				mesh.add(edge);
-				return mesh;
-			}
+				function createMonitor() {
+					const geo = new THREE.PlaneGeometry(100, 40);
+					const mesh = new THREE.Mesh(geo, monitorShaderMat);
+					const edge = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+					edge.scale.multiplyScalar(1.01);
+					edge.position.z -= 0.01;
+					mesh.add(edge);
+					return mesh;
+				}
 
-			let tv = createMonitor();
-			tv.position.y = 25;
-			tv.position.z = -50;
-			tv.rotation.set(Math.PI, Math.PI, Math.PI);
-			monitorsGroup.add(tv);
+				let tv = createMonitor();
+				tv.position.y = 25; tv.position.z = -50;
+				tv.rotation.set(Math.PI, Math.PI, Math.PI);
+				monitorsGroup.add(tv);
 
-			tv = createMonitor();
-			tv.position.x = -70;
-			tv.position.y = 25;
-			tv.position.z = 0;
-			tv.rotation.set(Math.PI, 110 * Math.PI / 180, Math.PI);
-			monitorsGroup.add(tv);
+				tv = createMonitor();
+				tv.position.x = -70; tv.position.y = 25;
+				tv.rotation.set(Math.PI, 110 * Math.PI / 180, Math.PI);
+				monitorsGroup.add(tv);
 
-			tv = createMonitor();
-			tv.position.x = 70;
-			tv.position.y = 25;
-			tv.position.z = 0;
-			tv.rotation.set(Math.PI, -110 * Math.PI / 180, Math.PI);
-			monitorsGroup.add(tv);
+				tv = createMonitor();
+				tv.position.x = 70; tv.position.y = 25;
+				tv.rotation.set(Math.PI, -110 * Math.PI / 180, Math.PI);
+				monitorsGroup.add(tv);
 
-			// ===== 光束粒子 =====
-			const beamGeo = new THREE.SphereGeometry(0.05, 4);
-			const beamNum = 200;
-			for (let i = 0; i < beamNum; i++) {
-				const beamMesh = new THREE.Mesh(
-					beamGeo,
-					new THREE.MeshBasicMaterial({
+				// 光束粒子
+				const beamGeo = new THREE.SphereGeometry(0.05, 4);
+				for (let i = 0; i < 200; i++) {
+					beamsGroup.add(new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({
 						color: 0xffff88,
-						opacity: 0.25 - 0.25 / beamNum * i,
+						opacity: 0.25 - 0.25 / 200 * i,
 						transparent: true
-					})
+					})));
+				}
+
+				// Bloom 辉光
+				bloomPass = new THREE.UnrealBloomPass(
+					new THREE.Vector2(window.innerWidth, window.innerHeight), 0.6, 0.4, 0.2
 				);
-				beamsGroup.add(beamMesh);
-			}
+				const copyPass = new ShaderPass(CopyShader);
+				copyPass.renderToScreen = true;
+				composer = new EffectComposer(renderer);
+				composer.setSize(window.innerWidth, window.innerHeight);
+				composer.addPass(bloomPass);
+				composer.addPass(copyPass);
 
-			// ===== Bloom 后期处理 =====
-			bloomPass = new THREE.UnrealBloomPass(
-				new THREE.Vector2(window.innerWidth, window.innerHeight),
-				0.6, 0.4, 0.2
-			);
-			const copyPass = new ShaderPass(CopyShader);
-			copyPass.renderToScreen = true;
-			composer = new EffectComposer(renderer);
-			composer.setSize(window.innerWidth, window.innerHeight);
-			composer.addPass(bloomPass);
-			composer.addPass(copyPass);
-			// 监视器使用独立的渲染目标
-			const rt2 = new THREE.WebGLRenderTarget(
-				window.innerWidth, window.innerHeight
-			);
-			composer2 = new EffectComposer(renderer, rt2);
-			composer2.setSize(window.innerWidth, window.innerHeight);
-			composer2.addPass(new ShaderPass(CopyShader));
-
-			// ===== UI 工具函数 =====
+				composer2 = new EffectComposer(renderer, new THREE.WebGLRenderTarget(
+					window.innerWidth, window.innerHeight
+				));
+				composer2.setSize(window.innerWidth, window.innerHeight);
+				composer2.addPass(new ShaderPass(CopyShader));
+			} catch (e) {
+				console.warn('Stage/Bloom setup failed (stage effects disabled):', e.message || e);
+			}			// ===== UI 工具函数 =====
 			let statusTimeout = null;
 			function setStatus(text, persistent = false) {
 				statusBar.textContent = text;
@@ -1140,36 +1127,44 @@
 
 				controls.update();
 
-				// ===== 多 Pass 渲染 =====
-				// Pass 1: 渲染主场景（模型 + 地面 + 线框球体）
-				renderer.autoClear = true;
-				renderer.shadowMap.enabled = true;
-				scene.autoUpdate = true;
-				mainGroup.visible = true;
-				beamsGroup.visible = false;
-				monitorsGroup.visible = false;
-				effect.render(scene, camera, composer.readBuffer);
+				// ===== 渲染（多 Pass 舞台效果 / 简单回退） =====
+				if (composer && bloomPass) {
+					// Pass 1: 渲染主场景（模型 + 地面 + 线框球体）
+					renderer.autoClear = true;
+					renderer.shadowMap.enabled = true;
+					scene.autoUpdate = true;
+					mainGroup.visible = true;
+					beamsGroup.visible = false;
+					monitorsGroup.visible = false;
+					effect.render(scene, camera, composer.readBuffer);
 
-				// Pass 2: 渲染光束粒子
-				renderer.autoClear = false;
-				renderer.shadowMap.enabled = false;
-				scene.autoUpdate = false;
-				mainGroup.visible = false;
-				beamsGroup.visible = true;
-				monitorsGroup.visible = false;
-				renderer.render(scene, camera, composer.readBuffer);
+					// Pass 2: 渲染光束粒子
+					renderer.autoClear = false;
+					renderer.shadowMap.enabled = false;
+					scene.autoUpdate = false;
+					mainGroup.visible = false;
+					beamsGroup.visible = true;
+					monitorsGroup.visible = false;
+					renderer.render(scene, camera, composer.readBuffer);
 
-								// Pass 3: 设置监视器纹理（从 composer 的读缓冲区取场景画面）
-								monitorShaderMat.uniforms.tDiffuse.value = composer.readBuffer.texture;
+					// Pass 3: 设置监视器纹理
+					if (monitorShaderMat) monitorShaderMat.uniforms.tDiffuse.value = composer.readBuffer.texture;
 
-								// Pass 4: 渲染监视器
-				mainGroup.visible = false;
-				beamsGroup.visible = false;
-				monitorsGroup.visible = true;
-				renderer.render(scene, camera, composer.readBuffer);
+					// Pass 4: 渲染监视器
+					mainGroup.visible = false;
+					beamsGroup.visible = false;
+					monitorsGroup.visible = true;
+					renderer.render(scene, camera, composer.readBuffer);
 
-				// Pass 5: Bloom 输出到屏幕
-				composer.render();
+					// Pass 5: Bloom 输出到屏幕
+					composer.render();
+				} else {
+					// 简单模式：直接渲染
+					mainGroup.visible = true;
+					beamsGroup.visible = false;
+					monitorsGroup.visible = false;
+					effect.render(scene, camera);
+				}
 			}
 
 			animate();
