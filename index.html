@@ -435,6 +435,7 @@
 				flex: 1;
 				overflow-y: auto;
 				padding: 10px 16px 16px 16px;
+				padding-right: 20%;
 				-webkit-overflow-scrolling: touch;
 			}
 			.render-content::-webkit-scrollbar {
@@ -733,6 +734,10 @@
 					<div class="rp-setting">
 						<div class="rp-label"><span>阴影</span></div>
 						<label class="rp-check-label"><input type="checkbox" id="shadowEnabled" checked> 启用阴影</label>
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>物理模拟</span></div>
+						<label class="rp-check-label"><input type="checkbox" id="physicsEnabled" checked> 启用物理（裙摆等动态效果）</label>
 					</div>
 				</div>
 			</div>
@@ -1194,11 +1199,11 @@
 											scene.add(mesh);
 											currentMesh = mesh;
 
-											// 设置动画（全局启用物理模拟）
+											// 设置动画（根据物理开关）
 											try {
 												helper.add(mesh, {
 													animation: mmd.animation,
-													physics: true
+													physics: physicsEnabled
 												});
 											} catch (e) {
 												console.warn('Physics setup failed, retrying without physics:', e);
@@ -1283,7 +1288,7 @@
 																try {
 											helper.add(mesh, {
 											animation: animation,
-											physics: false
+											physics: physicsEnabled
 											});
 																} catch (e2) {
 											console.warn('Animation setup also failed:', e2);
@@ -1724,6 +1729,26 @@
 				}
 			});
 
+			// ===== 物理模拟开关 =====
+			let physicsEnabled = true;
+			document.getElementById("physicsEnabled").addEventListener("change", (e) => {
+				physicsEnabled = e.target.checked;
+				if (currentHelper && currentMesh) {
+					try {
+						const key = currentMesh.uuid;
+						const existing = currentHelper.objects.get(key);
+						if (existing && existing.animation) {
+							currentHelper.objects.delete(key);
+							currentHelper.add(currentMesh, {
+								animation: existing.animation,
+								physics: physicsEnabled
+							});
+						}
+					} catch (err) {
+						console.warn("Physics toggle error:", err);
+					}
+				}
+			});
 			// ===== 初始化 =====
 			(async () => {
 				// 等待 Ammo.js 加载
