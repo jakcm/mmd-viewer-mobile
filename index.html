@@ -296,6 +296,253 @@
 				opacity: 1;
 				pointer-events: auto;
 			}
+
+			/* ===== 渲染设置按钮（右下角） ===== */
+			.render-btn {
+				position: fixed;
+				bottom: 76px;
+				right: 16px;
+				width: 48px;
+				height: 48px;
+				border-radius: 50%;
+				background: rgba(30, 30, 60, 0.85);
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				border: 1px solid rgba(255,255,255,0.15);
+				color: #fff;
+				font-size: 22px;
+				cursor: pointer;
+				z-index: 200;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+				box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+				touch-action: manipulation;
+			}
+			.render-btn:active {
+				transform: scale(0.92);
+			}
+			.render-btn.active {
+				background: rgba(106, 130, 251, 0.9);
+			}
+			.render-btn svg {
+				width: 24px;
+				height: 24px;
+			}
+
+			/* ===== 渲染设置面板遮罩 ===== */
+			.render-panel-overlay {
+				position: fixed;
+				inset: 0;
+				background: rgba(0,0,0,0.3);
+				z-index: 250;
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.3s;
+			}
+			.render-panel-overlay.show {
+				opacity: 1;
+				pointer-events: auto;
+			}
+
+			/* ===== 渲染设置面板（底部 1/4 滑出） ===== */
+			.render-panel {
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				height: 25vh;
+				min-height: 220px;
+				max-height: 300px;
+				background: rgba(20, 20, 40, 0.96);
+				backdrop-filter: blur(24px);
+				-webkit-backdrop-filter: blur(24px);
+				border-top: 1px solid rgba(255,255,255,0.1);
+				border-radius: 16px 16px 0 0;
+				z-index: 300;
+				transform: translateY(100%);
+				transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
+			.render-panel.open {
+				transform: translateY(0);
+				box-shadow: 0 -8px 40px rgba(0,0,0,0.6);
+			}
+
+			.render-panel-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 10px 16px;
+				border-bottom: 1px solid rgba(255,255,255,0.08);
+				flex-shrink: 0;
+			}
+			.render-panel-header .rp-title {
+				font-size: 15px;
+				font-weight: 700;
+				color: #8b9bff;
+			}
+			.render-panel-close {
+				width: 32px;
+				height: 32px;
+				border: none;
+				background: rgba(255,255,255,0.08);
+				border-radius: 50%;
+				color: #aaa;
+				font-size: 16px;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				transition: background 0.2s;
+			}
+			.render-panel-close:active {
+				background: rgba(255,255,255,0.15);
+			}
+
+			/* ===== Tab 导航 ===== */
+			.render-tabs {
+				display: flex;
+				border-bottom: 1px solid rgba(255,255,255,0.08);
+				flex-shrink: 0;
+			}
+			.render-tab {
+				flex: 1;
+				padding: 8px 0;
+				border: none;
+				background: transparent;
+				color: #888;
+				font-size: 13px;
+				font-weight: 600;
+				cursor: pointer;
+				transition: color 0.2s, border-bottom-color 0.2s;
+				border-bottom: 2px solid transparent;
+				touch-action: manipulation;
+			}
+			.render-tab.active {
+				color: #8b9bff;
+				border-bottom-color: #8b9bff;
+			}
+			.render-tab:active {
+				color: #6a82fb;
+			}
+
+			/* ===== Tab 内容区 ===== */
+			.render-content {
+				flex: 1;
+				overflow-y: auto;
+				padding: 10px 16px 16px 16px;
+				-webkit-overflow-scrolling: touch;
+			}
+			.render-content::-webkit-scrollbar {
+				width: 4px;
+			}
+			.render-content::-webkit-scrollbar-thumb {
+				background: rgba(255,255,255,0.2);
+				border-radius: 4px;
+			}
+			.render-tab-content {
+				display: none;
+			}
+			.render-tab-content.active {
+				display: block;
+			}
+
+			/* ===== 设置项 ===== */
+			.rp-setting {
+				margin-bottom: 10px;
+			}
+			.rp-setting:last-child {
+				margin-bottom: 0;
+			}
+			.rp-setting .rp-label {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				font-size: 12px;
+				color: #aaa;
+				margin-bottom: 3px;
+			}
+			.rp-setting .rp-label .rp-val {
+				color: #8b9bff;
+				font-weight: 600;
+			}
+			.rp-setting input[type="range"] {
+				width: 100%;
+				height: 4px;
+				-webkit-appearance: none;
+				appearance: none;
+				background: rgba(255,255,255,0.15);
+				border-radius: 2px;
+				outline: none;
+			}
+			.rp-setting input[type="range"]::-webkit-slider-thumb {
+				-webkit-appearance: none;
+				width: 14px;
+				height: 14px;
+				border-radius: 50%;
+				background: #6a82fb;
+				cursor: pointer;
+				border: none;
+				box-shadow: 0 2px 6px rgba(106,130,251,0.4);
+			}
+			.rp-setting input[type="color"] {
+				width: 30px;
+				height: 30px;
+				border: 1px solid rgba(255,255,255,0.15);
+				border-radius: 6px;
+				cursor: pointer;
+				background: transparent;
+				padding: 2px;
+			}
+			.rp-setting .rp-color-group {
+				display: flex;
+				gap: 10px;
+				align-items: center;
+				flex-wrap: wrap;
+			}
+			.rp-setting .rp-color-group .rp-color-item {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 2px;
+				font-size: 10px;
+				color: #888;
+			}
+			.rp-setting input[type="checkbox"] {
+				width: 18px;
+				height: 18px;
+				accent-color: #6a82fb;
+				cursor: pointer;
+			}
+			.rp-setting .rp-check-label {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				font-size: 12px;
+				color: #aaa;
+				cursor: pointer;
+			}
+
+			@media (max-width: 600px) {
+				.render-btn {
+					width: 44px;
+					height: 44px;
+					font-size: 20px;
+					bottom: 68px;
+				}
+				.render-btn svg {
+					width: 22px;
+					height: 22px;
+				}
+				.render-panel {
+					height: 30vh;
+					max-height: 260px;
+				}
+			}
 		</style>
 	</head>
 
@@ -386,6 +633,110 @@
 
 		<!-- 状态栏 -->
 		<div class="status-bar" id="statusBar">就绪</div>
+
+		<!-- 渲染设置按钮（右下角） -->
+		<button class="render-btn" id="renderBtn" aria-label="渲染设置">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<circle cx="12" cy="12" r="3"/>
+				<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+			</svg>
+		</button>
+
+		<!-- 渲染设置面板遮罩 -->
+		<div class="render-panel-overlay" id="renderOverlay"></div>
+
+		<!-- 渲染设置面板 -->
+		<div class="render-panel" id="renderPanel">
+			<div class="render-panel-header">
+				<div class="rp-title">🎨 3D 渲染设置</div>
+				<button class="render-panel-close" id="renderCloseBtn">✕</button>
+			</div>
+			<div class="render-tabs" id="renderTabs">
+				<button class="render-tab active" data-tab="lighting">💡 光照</button>
+				<button class="render-tab" data-tab="camera">📷 相机</button>
+				<button class="render-tab" data-tab="render">✨ 渲染</button>
+			</div>
+			<div class="render-content">
+				<!-- 光照 -->
+				<div class="render-tab-content active" id="tab-lighting">
+					<div class="rp-setting">
+						<div class="rp-label"><span>环境光强度</span><span class="rp-val" id="val-ambientIntensity">2.0</span></div>
+						<input type="range" id="ambientIntensity" min="0" max="10" step="0.1" value="2.0">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>半球光强度</span><span class="rp-val" id="val-hemiIntensity">1.5</span></div>
+						<input type="range" id="hemiIntensity" min="0" max="5" step="0.1" value="1.5">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>半球光</span></div>
+						<div class="rp-color-group">
+							<div class="rp-color-item"><input type="color" id="hemiSkyColor" value="#ffeedd"><span>天空色</span></div>
+							<div class="rp-color-item"><input type="color" id="hemiGroundColor" value="#080820"><span>地面色</span></div>
+						</div>
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>主方向光强度</span><span class="rp-val" id="val-dirIntensity">5.0</span></div>
+						<input type="range" id="dirIntensity" min="0" max="20" step="0.1" value="5.0">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>主方向光颜色</span></div>
+						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="dirColor" value="#ffeedd"><span>色</span></div></div>
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>补光强度</span><span class="rp-val" id="val-fillIntensity">1.5</span></div>
+						<input type="range" id="fillIntensity" min="0" max="5" step="0.1" value="1.5">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>补光颜色</span></div>
+						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="fillColor" value="#8888ff"><span>色</span></div></div>
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>背光强度</span><span class="rp-val" id="val-rimIntensity">1.0</span></div>
+						<input type="range" id="rimIntensity" min="0" max="5" step="0.1" value="1.0">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>聚光强度</span><span class="rp-val" id="val-spotIntensity">80</span></div>
+						<input type="range" id="spotIntensity" min="0" max="200" step="1" value="80">
+					</div>
+				</div>
+
+				<!-- 相机 -->
+				<div class="render-tab-content" id="tab-camera">
+					<div class="rp-setting">
+						<div class="rp-label"><span>FOV 视野</span><span class="rp-val" id="val-fov">45°</span></div>
+						<input type="range" id="fov" min="10" max="120" step="1" value="45">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>最小视距</span><span class="rp-val" id="val-minDist">5</span></div>
+						<input type="range" id="minDist" min="1" max="30" step="0.5" value="5">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>最大视距</span><span class="rp-val" id="val-maxDist">100</span></div>
+						<input type="range" id="maxDist" min="10" max="300" step="5" value="100">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>垂直俯仰角限制</span><span class="rp-val" id="val-polarAngle">55°</span></div>
+						<input type="range" id="polarAngle" min="0" max="90" step="1" value="55">
+					</div>
+				</div>
+
+				<!-- 渲染 -->
+				<div class="render-tab-content" id="tab-render">
+					<div class="rp-setting">
+						<div class="rp-label"><span>轮廓描边厚度</span><span class="rp-val" id="val-outlineThickness">0.010</span></div>
+						<input type="range" id="outlineThickness" min="0" max="0.05" step="0.001" value="0.01">
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>背景颜色</span></div>
+						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="bgColor" value="#2a2a4e"><span>色</span></div></div>
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>阴影</span></div>
+						<label class="rp-check-label"><input type="checkbox" id="shadowEnabled" checked> 启用阴影</label>
+					</div>
+				</div>
+			</div>
+		</div>
 
 		<!-- Ammo.js 物理引擎（全局脚本，MMD 物理模拟依赖） -->
 		<script src="./libs/ammo.js"></script>
@@ -537,7 +888,7 @@
 			document.body.appendChild(renderer.domElement);
 
 			// OutlineEffect 用于 MMD 描边渲染
-			const effect = new OutlineEffect(renderer, { defaultThickness: 0.01 });
+			let effect = new OutlineEffect(renderer, { defaultThickness: 0.01 });
 
 			const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
 			camera.position.set(0, 15, 40);
@@ -1225,6 +1576,147 @@
 				effect.render(scene, camera);	}
 
 			animate();
+
+			// ===== 渲染设置面板 =====
+			const renderBtn = document.getElementById('renderBtn');
+			const renderPanel = document.getElementById('renderPanel');
+			const renderOverlay = document.getElementById('renderOverlay');
+			const renderCloseBtn = document.getElementById('renderCloseBtn');
+			let renderPanelOpen = false;
+
+			function toggleRenderPanel() {
+				renderPanelOpen = !renderPanelOpen;
+				renderPanel.classList.toggle('open', renderPanelOpen);
+				renderOverlay.classList.toggle('show', renderPanelOpen);
+				renderBtn.classList.toggle('active', renderPanelOpen);
+			}
+
+			renderBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				toggleRenderPanel();
+			});
+			renderOverlay.addEventListener('click', toggleRenderPanel);
+			renderCloseBtn.addEventListener('click', toggleRenderPanel);
+
+			// Tab 切换
+			const rTabs = document.querySelectorAll('.render-tab');
+			const rTabContents = {
+				lighting: document.getElementById('tab-lighting'),
+				camera: document.getElementById('tab-camera'),
+				render: document.getElementById('tab-render')
+			};
+			rTabs.forEach(tab => {
+				tab.addEventListener('click', () => {
+					rTabs.forEach(t => t.classList.remove('active'));
+					tab.classList.add('active');
+					Object.keys(rTabContents).forEach(key => {
+						rTabContents[key].classList.toggle('active', key === tab.dataset.tab);
+					});
+				});
+			});
+
+			// Hex → Three.Color
+			function hexToColor(hex) {
+				return new THREE.Color(hex);
+			}
+
+			// ===== 光照控制 =====
+			document.getElementById('ambientIntensity').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-ambientIntensity').textContent = v.toFixed(1);
+				ambientLight.intensity = v;
+			});
+
+			document.getElementById('hemiIntensity').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-hemiIntensity').textContent = v.toFixed(1);
+				hemiLight.intensity = v;
+			});
+			document.getElementById('hemiSkyColor').addEventListener('input', (e) => {
+				hemiLight.color.copy(hexToColor(e.target.value));
+			});
+			document.getElementById('hemiGroundColor').addEventListener('input', (e) => {
+				hemiLight.groundColor.copy(hexToColor(e.target.value));
+			});
+
+			document.getElementById('dirIntensity').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-dirIntensity').textContent = v.toFixed(1);
+				directionalLight.intensity = v;
+			});
+			document.getElementById('dirColor').addEventListener('input', (e) => {
+				directionalLight.color.copy(hexToColor(e.target.value));
+			});
+
+			document.getElementById('fillIntensity').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-fillIntensity').textContent = v.toFixed(1);
+				fillLight.intensity = v;
+			});
+			document.getElementById('fillColor').addEventListener('input', (e) => {
+				fillLight.color.copy(hexToColor(e.target.value));
+			});
+
+			document.getElementById('rimIntensity').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-rimIntensity').textContent = v.toFixed(1);
+				rimLight.intensity = v;
+			});
+
+			document.getElementById('spotIntensity').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-spotIntensity').textContent = v;
+				spotLight.intensity = v;
+			});
+
+			// ===== 相机控制 =====
+			document.getElementById('fov').addEventListener('input', (e) => {
+				const v = parseInt(e.target.value);
+				document.getElementById('val-fov').textContent = v + '°';
+				camera.fov = v;
+				camera.updateProjectionMatrix();
+			});
+			document.getElementById('minDist').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-minDist').textContent = v;
+				controls.minDistance = v;
+			});
+			document.getElementById('maxDist').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-maxDist').textContent = v;
+				controls.maxDistance = v;
+			});
+			document.getElementById('polarAngle').addEventListener('input', (e) => {
+				const v = parseInt(e.target.value);
+				document.getElementById('val-polarAngle').textContent = v + '°';
+				controls.maxPolarAngle = v * Math.PI / 180;
+			});
+
+			// ===== 渲染控制 =====
+			document.getElementById('outlineThickness').addEventListener('input', (e) => {
+				const v = parseFloat(e.target.value);
+				document.getElementById('val-outlineThickness').textContent = v.toFixed(3);
+				if (effect.parameters) {
+					effect.parameters.defaultThickness = v;
+				}
+			});
+			document.getElementById('bgColor').addEventListener('input', (e) => {
+				scene.background = new THREE.Color(e.target.value);
+			});
+			document.getElementById('shadowEnabled').addEventListener('change', (e) => {
+				const en = e.target.checked;
+				renderer.shadowMap.enabled = en;
+				directionalLight.castShadow = en;
+				spotLight.castShadow = en;
+				if (currentMesh) {
+					currentMesh.traverse((node) => {
+						if (node.isMesh) {
+							node.castShadow = en;
+							node.receiveShadow = en;
+						}
+					});
+				}
+			});
 
 			// ===== 初始化 =====
 			(async () => {
