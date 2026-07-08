@@ -784,6 +784,7 @@
 			let isPaused = false;
 			let audioListener = null;
 			let audioElement = null;
+			let loadingId = 0; // 递增计数器，用于忽略过期回调
 
 			// ===== 舞台 3D 组（异步构建） =====
 			let stageGroup, beamsGroup, monitorsGroup;
@@ -1113,6 +1114,7 @@
 				isPlaying = false;
 				isPaused = false;
 				updateButtons();
+				const _loadId = ++loadingId; // 记录本次加载 ID，忽略过期回调
 
 				return new Promise((resolve, reject) => {
 								const loader = new MMDLoader();
@@ -1291,6 +1293,7 @@
 																fetch(currentAudioFile)
 											.then(r => r.arrayBuffer())
 											.then(buf => {
+											if (_loadId !== loadingId) return;
 											const listener = new THREE.AudioListener();
 											const audio = new THREE.Audio(listener);
 											const ctx = listener.context;
@@ -1309,6 +1312,7 @@
 											updateButtons();
 											resolve();
 											}, () => {
+											if (_loadId !== loadingId) return;
 											currentHelper = helper;
 											isReady = true;
 											hideLoading();
@@ -1318,6 +1322,7 @@
 											});
 											})
 											.catch(() => {
+											if (_loadId !== loadingId) return;
 											currentHelper = helper;
 											isReady = true;
 											hideLoading();
@@ -1341,6 +1346,7 @@
 													},
 													undefined,
 													(err2) => {
+														if (_loadId !== loadingId) return;
 														console.error('Fallback model load error:', err2);
 														hideLoading();
 														setStatus(`模型加载失败: ${err2.message || err2}`);
