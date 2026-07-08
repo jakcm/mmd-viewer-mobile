@@ -96,6 +96,40 @@
 				height: 24px;
 			}
 
+			/* ===== 播放/暂停切换按钮（位于菜单按钮下方） ===== */
+			.play-toggle {
+				position: fixed;
+				top: 72px;
+				right: 16px;
+				width: 48px;
+				height: 48px;
+				border-radius: 50%;
+				background: rgba(106, 130, 251, 0.85);
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				border: 1px solid rgba(255,255,255,0.2);
+				color: #fff;
+				font-size: 22px;
+				cursor: pointer;
+				z-index: 200;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s, opacity 0.3s;
+				box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+				touch-action: manipulation;
+			}
+			.play-toggle:active {
+				transform: scale(0.92);
+			}
+			.play-toggle.disabled {
+				opacity: 0.4;
+				cursor: not-allowed;
+			}
+			.play-toggle.paused svg {
+				padding-left: 2px;
+			}
+
 			/* ===== 控制面板 ===== */
 			.controls-panel {
 				position: fixed;
@@ -220,14 +254,6 @@
 				width: 18px;
 				height: 18px;
 			}
-			#playBtn {
-				background: linear-gradient(145deg, #6a82fb, #4a62db);
-				color: white;
-			}
-			#pauseBtn {
-				background: rgba(255,255,255,0.1);
-				color: #fff;
-			}
 			#stopBtn {
 				background: rgba(255,80,80,0.2);
 				color: #ff6b6b;
@@ -244,57 +270,35 @@
 				border-radius: 8px;
 			}
 
-			/* ===== 状态指示器 ===== */
-			.status-bar {
-				position: fixed;
-				bottom: 16px;
-				left: 50%;
-				transform: translateX(-50%);
-				background: rgba(20, 20, 40, 0.85);
-				backdrop-filter: blur(12px);
-				-webkit-backdrop-filter: blur(12px);
-				padding: 8px 20px;
-				border-radius: 20px;
-				font-size: 13px;
-				color: #ccc;
-				z-index: 100;
-				white-space: nowrap;
-				max-width: 90vw;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				border: 1px solid rgba(255,255,255,0.1);
-				transition: opacity 0.3s;
-				pointer-events: none;
-			}
-			.status-bar.fade {
-				opacity: 0;
-			}
-
 			/* ===== 移动端适配 ===== */
 			@media (max-width: 600px) {
-				.controls-panel {
-					width: 85vw;
-				}
-				.menu-toggle {
+				.menu-toggle, .play-toggle {
 					width: 44px;
 					height: 44px;
-					font-size: 22px;
+					font-size: 20px;
+				}
+				.play-toggle {
+					top: 66px;
+				}
+				.render-btn {
+					width: 44px;
+					height: 44px;
+					font-size: 20px;
+					bottom: 68px;
+				}
+				.render-btn svg {
+					width: 22px;
+					height: 22px;
+				}
+				.render-panel {
+					height: 30vh;
+					max-height: 260px;
 				}
 			}
 
 			/* ===== 遮罩层 ===== */
 			.backdrop {
-				position: fixed;
-				inset: 0;
-				background: rgba(0,0,0,0.3);
-				z-index: 140;
-				opacity: 0;
-				pointer-events: none;
-				transition: opacity 0.3s;
-			}
-			.backdrop.show {
-				opacity: 1;
-				pointer-events: auto;
+				display: none;
 			}
 
 			/* ===== 渲染设置按钮（右下角） ===== */
@@ -333,17 +337,7 @@
 
 			/* ===== 渲染设置面板遮罩 ===== */
 			.render-panel-overlay {
-				position: fixed;
-				inset: 0;
-				background: rgba(0,0,0,0.3);
-				z-index: 250;
-				opacity: 0;
-				pointer-events: none;
-				transition: opacity 0.3s;
-			}
-			.render-panel-overlay.show {
-				opacity: 1;
-				pointer-events: auto;
+				display: none;
 			}
 
 			/* ===== 渲染设置面板（底部 1/4 滑出） ===== */
@@ -563,6 +557,13 @@
 			</svg>
 		</button>
 
+		<!-- 播放/暂停切换按钮 -->
+		<button class="play-toggle disabled" id="playToggle" aria-label="播放/暂停">
+			<svg id="playIcon" viewBox="0 0 24 24" fill="currentColor">
+				<polygon points="5 3 19 12 5 21 5 3"/>
+			</svg>
+		</button>
+
 		<!-- 遮罩 -->
 		<div class="backdrop" id="backdrop"></div>
 
@@ -615,14 +616,6 @@
 			<div class="panel-section">
 				<div class="section-title">播放控制</div>
 				<div class="playback-controls">
-					<button id="playBtn" disabled>
-						<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-						播放
-					</button>
-					<button id="pauseBtn" disabled>
-						<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-						暂停
-					</button>
 					<button id="stopBtn" disabled>
 						<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
 						停止
@@ -631,9 +624,6 @@
 				<div class="music-info" id="musicInfo">🎵 wavefile_short.mp3</div>
 			</div>
 		</div>
-
-		<!-- 状态栏 -->
-		<div class="status-bar" id="statusBar">就绪</div>
 
 		<!-- 渲染设置按钮（右下角） -->
 		<button class="render-btn" id="renderBtn" aria-label="渲染设置">
@@ -774,11 +764,10 @@
 			const danceSelector = document.getElementById('danceSelector');
 			const vmdFileInput = document.getElementById('vmdFileInput');
 			const audioFileInput = document.getElementById('audioFileInput');
-			const playBtn = document.getElementById('playBtn');
-			const pauseBtn = document.getElementById('pauseBtn');
 			const stopBtn = document.getElementById('stopBtn');
-			const statusBar = document.getElementById('statusBar');
 			const musicInfo = document.getElementById('musicInfo');
+			const playToggle = document.getElementById('playToggle');
+			const playIcon = document.getElementById('playIcon');
 
 			// ===== 状态管理 =====
 			let currentMesh = null;
@@ -1024,14 +1013,8 @@
 			}, 1000);			// ===== UI 工具函数 =====
 			let statusTimeout = null;
 			function setStatus(text, persistent = false) {
-				statusBar.textContent = text;
-				statusBar.classList.remove('fade');
-				if (statusTimeout) clearTimeout(statusTimeout);
-				if (!persistent) {
-					statusTimeout = setTimeout(() => {
-						statusBar.classList.add('fade');
-					}, 3000);
-				}
+				// 状态文字不再显示在 UI 上，保留函数避免报错
+				console.log('[Status]', text);
 			}
 
 			function showLoading(text) {
@@ -1048,7 +1031,6 @@
 			function toggleMenu() {
 				menuOpen = !menuOpen;
 				controlsPanel.classList.toggle('open', menuOpen);
-				backdrop.classList.toggle('show', menuOpen);
 				menuToggle.classList.toggle('active', menuOpen);
 				if (menuOpen) {
 					menuIcon.innerHTML = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
@@ -1060,7 +1042,6 @@
 				e.stopPropagation();
 				toggleMenu();
 			});
-			backdrop.addEventListener('click', toggleMenu);
 
 			// ===== 填充模型选择器 =====
 			builtInModels.forEach((model, index) => {
@@ -1246,7 +1227,7 @@
 										isReady = true;
 
 										hideLoading();
-										musicInfo.textContent = '🎵 ' + builtInDances[danceSelector.value].name;
+						musicInfo.textContent = '🎵 ' + builtInDances[danceSelector.value].name;
 										setStatus(`${modelName} 加载完成，点击播放`);
 										updateButtons();
 										resolve();
@@ -1309,7 +1290,7 @@
 											scene.add(listener);
 											audioElement = audio;
 											audioListener = listener;
-											musicInfo.textContent = '🎵 ' + builtInDances[danceSelector.value].name;
+							musicInfo.textContent = '🎵 ' + builtInDances[danceSelector.value].name;
 											currentHelper = helper;
 											isReady = true;
 											hideLoading();
@@ -1366,21 +1347,17 @@
 			// ===== 播放控制 =====
 			function playAnimation() {
 				if (!isReady || !currentHelper) {
-					setStatus('请先加载模型');
 					return;
 				}
 
 				if (isPlaying && isPaused) {
-					// 恢复暂停
 					if (audioElement) audioElement.play();
 					isPaused = false;
-					setStatus('播放中...', true);
-					if (menuOpen) toggleMenu();
+					updatePlayToggleIcon();
 					return;
 				}
 
 				if (isPlaying) {
-					setStatus('已在播放中');
 					return;
 				}
 
@@ -1393,26 +1370,20 @@
 					audioElement.play();
 				}
 
-				setStatus('播放中...', true);
-				if (menuOpen) toggleMenu();
+				updatePlayToggleIcon();
 			}
 
 			function pauseAnimation() {
 				if (!isPlaying) return;
 
 				if (!isPaused) {
-					// 暂停音频
 					if (audioElement) audioElement.pause();
 					isPaused = true;
-					setStatus('已暂停', true);
-					if (menuOpen) toggleMenu();
 				} else {
-					// 恢复
 					if (audioElement) audioElement.play();
 					isPaused = false;
-					setStatus('播放中...', true);
-					if (menuOpen) toggleMenu();
 				}
+				updatePlayToggleIcon();
 			}
 
 			function stopAnimation() {
@@ -1434,21 +1405,37 @@
 					}
 				}
 
-				setStatus('已停止');
 				updateButtons();
-				if (menuOpen) toggleMenu();
+			}
+
+			// ===== 播放/暂停切换 =====
+			function togglePlayPause() {
+				if (!isReady) return;
+				if (isPlaying && !isPaused) {
+					pauseAnimation();
+				} else {
+					playAnimation();
+				}
+			}
+
+			function updatePlayToggleIcon() {
+				if (isPlaying && !isPaused) {
+					playIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+					playToggle.classList.remove('disabled');
+				} else {
+					playIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+					playToggle.classList.toggle('disabled', !isReady);
+				}
 			}
 
 			// ===== 按钮状态更新 =====
 			function updateButtons() {
-				playBtn.disabled = !isReady;
-				pauseBtn.disabled = !isReady;
 				stopBtn.disabled = !isReady;
+				updatePlayToggleIcon();
 			}
 
 			// ===== 事件监听 =====
-			playBtn.addEventListener('click', playAnimation);
-			pauseBtn.addEventListener('click', pauseAnimation);
+			playToggle.addEventListener('click', togglePlayPause);
 			stopBtn.addEventListener('click', stopAnimation);
 
 			// 模型选择
@@ -1459,36 +1446,40 @@
 				await loadMMDModel(model.url, model.name);
 				const danceIdx = parseInt(danceSelector.value);
 				if (!isNaN(danceIdx) && builtInDances[danceIdx]) {
-					musicInfo.textContent = '🎵 ' + builtInDances[danceIdx].name;
+						musicInfo.textContent = '🎵 ' + builtInDances[danceIdx].name;
 				}
+				if (menuOpen) toggleMenu();
 			});
 
 			// 舞蹈选择
-			danceSelector.addEventListener('change', async () => {
-				const index = parseInt(danceSelector.value);
-				if (isNaN(index) && !danceSelector.value.startsWith('blob:')) return;
-				
-				let vmdFile, audioFile, delay;
-				if (danceSelector.value.startsWith('blob:')) {
-					vmdFile = currentVmdFile;
-					audioFile = currentAudioFile;
-					delay = currentAudioDelay;
-				} else {
-					const dance = builtInDances[index];
-					vmdFile = dance.vmd;
-					audioFile = dance.audio;
-					delay = dance.delay;
-				}
-				
-				currentVmdFile = vmdFile;
-				currentAudioFile = audioFile;
-				currentAudioDelay = delay;
-				
-				// 如果有当前模型，用新舞蹈重新加载
-				const modelIdx = parseInt(modelSelector.value);
-				if (!isNaN(modelIdx) && builtInModels[modelIdx]) {
-					await loadMMDModel(builtInModels[modelIdx].url, builtInModels[modelIdx].name);
-				}
+			// 舞蹈选择（选择后自动收起）
+					danceSelector.addEventListener('change', async () => {
+						const index = parseInt(danceSelector.value);
+						if (isNaN(index) && !danceSelector.value.startsWith('blob:')) return;
+
+						let vmdFile, audioFile, delay;
+						if (danceSelector.value.startsWith('blob:')) {
+							vmdFile = currentVmdFile;
+							audioFile = currentAudioFile;
+							delay = currentAudioDelay;
+						} else {
+							const dance = builtInDances[index];
+							vmdFile = dance.vmd;
+							audioFile = dance.audio;
+							delay = dance.delay;
+						}
+
+						currentVmdFile = vmdFile;
+						currentAudioFile = audioFile;
+						currentAudioDelay = delay;
+
+						// 如果有当前模型，用新舞蹈重新加载
+						const modelIdx = parseInt(modelSelector.value);
+						if (!isNaN(modelIdx) && builtInModels[modelIdx]) {
+							await loadMMDModel(builtInModels[modelIdx].url, builtInModels[modelIdx].name);
+						}
+						if (menuOpen) toggleMenu();
+					});
 			});
 
 			// 本地文件上传（MMD 模型）
