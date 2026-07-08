@@ -725,6 +725,14 @@
 						<div class="rp-label"><span>网格线透明度</span><span class="rp-val" id="val-gridOpacity">1.0</span></div>
 						<input type="range" id="gridOpacity" min="0" max="1" step="0.05" value="1.0">
 					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>线框球体颜色</span></div>
+						<div class="rp-color-group"><div class="rp-color-item"><input type="color" id="sphereColor" value="#ffffff"><span>色</span></div></div>
+					</div>
+					<div class="rp-setting">
+						<div class="rp-label"><span>线框球体透明度</span><span class="rp-val" id="val-sphereOpacity">1.0</span></div>
+						<input type="range" id="sphereOpacity" min="0" max="1" step="0.05" value="1.0">
+					</div>
 				</div>
 			</div>
 		</div>
@@ -780,7 +788,7 @@
 			let loadingId = 0; // 递增计数器，用于忽略过期回调
 
 			// ===== 舞台 3D 组（异步构建） =====
-			let stageGroup, beamsGroup, monitorsGroup;
+			let stageGroup, beamsGroup, monitorsGroup, wireframeSphere;
 
 			// ===== 内置模型列表 =====
 			const builtInModels = [
@@ -976,10 +984,11 @@
 					stageGroup.add(monitorsGroup);
 
 					// 线框球体
-					stageGroup.add(new THREE.Mesh(
+					wireframeSphere = new THREE.Mesh(
 						new THREE.SphereGeometry(200, 32),
 						new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
-					));
+					);
+					stageGroup.add(wireframeSphere);
 
 					// 3 块监视器
 					const monitorMat = new THREE.MeshBasicMaterial({ color: 0x2244aa, transparent: true, opacity: 0.3 });
@@ -1732,6 +1741,21 @@
 				gridHelper.material.needsUpdate = true;
 			});
 
+			// ===== 线框球体控制 =====
+			document.getElementById('sphereColor').addEventListener('input', (e) => {
+				if (wireframeSphere) {
+					wireframeSphere.material.color.set(e.target.value);
+				}
+			});
+			document.getElementById('sphereOpacity').addEventListener('input', (e) => {
+				if (wireframeSphere) {
+					const v = parseFloat(e.target.value);
+					document.getElementById('val-sphereOpacity').textContent = v.toFixed(2);
+					wireframeSphere.material.transparent = v < 1;
+					wireframeSphere.material.opacity = v;
+				}
+			});
+
 			// ===== 渲染设置收集/应用 =====
 			function collectRenderSettings() {
 				return {
@@ -1754,9 +1778,11 @@
 					shadowEnabled: document.getElementById('shadowEnabled').checked,
 					physicsEnabled: document.getElementById('physicsEnabled').checked,
 					gridColor: document.getElementById('gridColor').value,
-					gridCenterColor: document.getElementById('gridCenterColor').value,
-					gridOpacity: parseFloat(document.getElementById('gridOpacity').value),
-				};
+				gridCenterColor: document.getElementById('gridCenterColor').value,
+				gridOpacity: parseFloat(document.getElementById('gridOpacity').value),
+				sphereColor: document.getElementById('sphereColor').value,
+				sphereOpacity: parseFloat(document.getElementById('sphereOpacity').value),
+			};
 			}
 
 			function applyRenderSettings(data) {
@@ -1873,6 +1899,18 @@
 					gridHelper.material.needsUpdate = true;
 					document.getElementById('gridOpacity').value = v;
 					document.getElementById('val-gridOpacity').textContent = v.toFixed(2);
+				}
+				// 线框球体
+				if (data.sphereColor && wireframeSphere) {
+					wireframeSphere.material.color.set(data.sphereColor);
+					document.getElementById('sphereColor').value = data.sphereColor;
+				}
+				if (data.sphereOpacity !== undefined && wireframeSphere) {
+					const v = data.sphereOpacity;
+					wireframeSphere.material.transparent = v < 1;
+					wireframeSphere.material.opacity = v;
+					document.getElementById('sphereOpacity').value = v;
+					document.getElementById('val-sphereOpacity').textContent = v.toFixed(2);
 				}
 			}
 
