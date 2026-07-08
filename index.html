@@ -744,6 +744,11 @@
 				}
 			}
 		</script>
+		<script>
+			window.addEventListener("error", function(e) {
+				console.error("RAW_ERR:", e.message, e.filename, e.lineno, e.colno);
+			});
+		</script>
 
 		<script type="module">
 			import * as THREE from 'three';
@@ -1480,7 +1485,6 @@
 						}
 						if (menuOpen) toggleMenu();
 					});
-			});
 
 			// 本地文件上传（MMD 模型）
 			mmdFileInput.addEventListener('change', async (e) => {
@@ -1742,6 +1746,7 @@
 			});
 			// ===== 初始化 =====
 			(async () => {
+				try {
 				// 等待 Ammo.js 加载
 				if (typeof Ammo === 'undefined') {
 					showLoading('正在加载物理引擎...');
@@ -1769,6 +1774,10 @@
 				danceSelector.value = '0';
 				await loadMMDModel(builtInModels[0].url, builtInModels[0].name);
 				updateButtons();
+				} catch (initErr) {
+					console.error('Init error:', initErr.message, initErr.stack);
+					showLoading('加载失败: ' + initErr.message);
+				}
 			})();
 		</script>
 	</body>
