@@ -321,21 +321,47 @@
 		<!-- 控制面板 -->
 		<div class="controls-panel" id="controlsPanel">
 			<!-- 模型选择 -->
-			<div class="panel-section">
-				<div class="section-title">模型选择</div>
-				<select class="model-selector" id="modelSelector">
-					<option value="">-- 请选择模型 --</option>
-				</select>
-				<label class="upload-btn" for="mmdFileInput">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-						<polyline points="17 8 12 3 7 8"/>
-						<line x1="12" y1="3" x2="12" y2="15"/>
-					</svg>
-					<span>导入本地 MMD 模型</span>
-					<input type="file" id="mmdFileInput" accept=".pmd,.pmx,.pmc" />
-				</label>
-			</div>
+								<div class="panel-section">
+									<div class="section-title">模型选择</div>
+									<select class="model-selector" id="modelSelector">
+										<option value="">-- 请选择模型 --</option>
+									</select>
+									<label class="upload-btn" for="mmdFileInput">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+											<polyline points="17 8 12 3 7 8"/>
+											<line x1="12" y1="3" x2="12" y2="15"/>
+										</svg>
+										<span>导入本地 MMD 模型</span>
+										<input type="file" id="mmdFileInput" accept=".pmd,.pmx,.pmc" />
+									</label>
+								</div>
+
+								<!-- 舞蹈选择 -->
+								<div class="panel-section">
+									<div class="section-title">舞蹈选择</div>
+									<select class="model-selector" id="danceSelector">
+										<option value="">-- 请选择舞蹈 --</option>
+									</select>
+									<label class="upload-btn" for="vmdFileInput">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+											<polyline points="17 8 12 3 7 8"/>
+											<line x1="12" y1="3" x2="12" y2="15"/>
+										</svg>
+										<span>导入本地 VMD 舞蹈</span>
+										<input type="file" id="vmdFileInput" accept=".vmd" />
+									</label>
+									<label class="upload-btn" for="audioFileInput">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<path d="M9 18V5l12-2v13"/>
+											<circle cx="6" cy="18" r="3"/>
+											<circle cx="18" cy="16" r="3"/>
+										</svg>
+										<span>导入本地音频 (MP3/WAV)</span>
+										<input type="file" id="audioFileInput" accept=".mp3,.wav,.ogg" />
+									</label>
+								</div>
 
 			<!-- 播放控制 -->
 			<div class="panel-section">
@@ -389,6 +415,9 @@
 			const backdrop = document.getElementById('backdrop');
 			const modelSelector = document.getElementById('modelSelector');
 			const mmdFileInput = document.getElementById('mmdFileInput');
+			const danceSelector = document.getElementById('danceSelector');
+			const vmdFileInput = document.getElementById('vmdFileInput');
+			const audioFileInput = document.getElementById('audioFileInput');
 			const playBtn = document.getElementById('playBtn');
 			const pauseBtn = document.getElementById('pauseBtn');
 			const stopBtn = document.getElementById('stopBtn');
@@ -462,10 +491,26 @@
 				}
 			];
 
-			// ===== 舞蹈和音频资源 =====
-			const vmdFile = './vmd/wavefile_v2.vmd';
-			const audioFile = './audio/wavefile_short.mp3';
-			const audioDelayTime = 160 * 1 / 30; // 原始 app 的延迟参数
+			// ===== 内置舞蹈列表 =====
+			const builtInDances = [
+				{
+					name: '默认舞蹈（wavefile）',
+					vmd: './vmd/default_dance.vmd',
+					audio: './audio/wavefile_short.mp3',
+					delay: 160 * 1 / 30
+				},
+				{
+					name: '兰若 - 你最最最重要',
+					vmd: './vmd/zuizhongyao_dance.vmd',
+					audio: './audio/zuizhongyao_music.wav',
+					delay: 0
+				}
+			];
+
+			// 当前选择的舞蹈和音频路径
+			let currentVmdFile = builtInDances[0].vmd;
+			let currentAudioFile = builtInDances[0].audio;
+			let currentAudioDelay = builtInDances[0].delay;
 
 			// ===== Three.js 场景设置 =====
 			const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -652,6 +697,14 @@
 				modelSelector.appendChild(option);
 			});
 
+			// ===== 填充舞蹈选择器 =====
+			builtInDances.forEach((dance, index) => {
+				const option = document.createElement('option');
+				option.value = index;
+				option.textContent = dance.name;
+				danceSelector.appendChild(option);
+			});
+
 			// ===== MMD 模型加载 =====
 			async function loadMMDModel(modelUrl, modelName) {
 				showLoading(`正在加载模型: ${modelName}...`);
@@ -724,21 +777,21 @@
 									if (morph.elementCount > morph.elements.length) {
 										morph.elementCount = morph.elements.length;
 									}
-																																		// 过滤 group morph (type 0) 中越界的 morph 索引
-																																			// 注意：仅对 PMX 格式处理，PMD 的 type 0 是 vertex morph 不是 group morph
-																																			if (data.metadata.format === 'pmx' && morph.type === 0 && morph.elements.length > 0) {
-																											const valid = morph.elements.filter(el => el.index >= 0 && el.index < morphCount);
-																											if (valid.length !== morph.elements.length) {
-																												console.warn('Fixed morph ' + i + ' (' + morph.name + '): removed ' + (morph.elements.length - valid.length) + ' out-of-bounds group elements');
-																												morph.elements = valid;
-																												morph.elementCount = valid.length;
-																											}
-																										}
-																										// PMD 格式: type 0 实际是 vertex morph，但 MMDLoader 把 type 0 当作 group morph 处理
-																										// 将 PMD morph type 从 0 改为 1 (vertex) 以避免 MMDLoader 错误处理
-																										if (data.metadata.format === 'pmd' && morph.type === 0) {
-																											morph.type = 1;
-																										}
+											// 过滤 group morph (type 0) 中越界的 morph 索引
+											// 注意：仅对 PMX 格式处理，PMD 的 type 0 是 vertex morph 不是 group morph
+											if (data.metadata.format === 'pmx' && morph.type === 0 && morph.elements.length > 0) {
+											const valid = morph.elements.filter(el => el.index >= 0 && el.index < morphCount);
+											if (valid.length !== morph.elements.length) {
+											console.warn('Fixed morph ' + i + ' (' + morph.name + '): removed ' + (morph.elements.length - valid.length) + ' out-of-bounds group elements');
+											morph.elements = valid;
+											morph.elementCount = valid.length;
+											}
+											}
+											// PMD 格式: type 0 实际是 vertex morph，但 MMDLoader 把 type 0 当作 group morph 处理
+											// 将 PMD morph type 从 0 改为 1 (vertex) 以避免 MMDLoader 错误处理
+											if (data.metadata.format === 'pmd' && morph.type === 0) {
+											morph.type = 1;
+											}
 								}
 							}
 						} catch (e) {
@@ -760,7 +813,7 @@
 					// 加载模型 + VMD 动画（出错时降级为仅模型加载）
 									loader.loadWithAnimation(
 										modelUrl,
-										[vmdFile],
+										[currentVmdFile],
 										(mmd) => {
 											const mesh = mmd.mesh;
 											mesh.castShadow = true;
@@ -787,7 +840,7 @@
 											}
 
 							// 加载音频（手动 fetch + decode，处理 AudioContext 挂起问题）
-							fetch(audioFile)
+							fetch(currentAudioFile)
 								.then(response => response.arrayBuffer())
 								.then(arrayBuffer => {
 									const listener = new THREE.AudioListener();
@@ -807,7 +860,7 @@
 
 										helper.add(audio, {
 											audio: audio,
-											delayTime: audioDelayTime
+											delayTime: currentAudioDelay
 										});
 
 										scene.add(audio);
@@ -819,6 +872,7 @@
 										isReady = true;
 
 										hideLoading();
+										musicInfo.textContent = '🎵 ' + builtInDances[danceSelector.value].name;
 										setStatus(`${modelName} 加载完成，点击播放`);
 										updateButtons();
 										resolve();
@@ -854,55 +908,56 @@
 
 														// 单独加载 VMD 动画
 														loader.loadAnimation(
-															vmdFile,
+															currentVmdFile,
 															mesh,
 															(animation) => {
 																try {
-																	helper.add(mesh, {
-																		animation: animation,
-																		physics: false
-																	});
+											helper.add(mesh, {
+											animation: animation,
+											physics: false
+											});
 																} catch (e2) {
-																	console.warn('Animation setup also failed:', e2);
+											console.warn('Animation setup also failed:', e2);
 																}
 
 																// 加载音频
-																fetch(audioFile)
-																	.then(r => r.arrayBuffer())
-																	.then(buf => {
-																		const listener = new THREE.AudioListener();
-																		const audio = new THREE.Audio(listener);
-																		const ctx = listener.context;
-																		ctx.decodeAudioData(buf, (buffer) => {
-																			audio.setBuffer(buffer);
-																			helper.add(audio, { audio, delayTime: audioDelayTime });
-																			scene.add(audio);
-																			scene.add(listener);
-																			audioElement = audio;
-																			audioListener = listener;
-																			currentHelper = helper;
-																			isReady = true;
-																			hideLoading();
-																			setStatus(`${modelName} 加载完成（降级模式）`);
-																			updateButtons();
-																			resolve();
-																		}, () => {
-																			currentHelper = helper;
-																			isReady = true;
-																			hideLoading();
-																			setStatus(`${modelName} 加载完成（降级模式，无音频）`);
-																			updateButtons();
-																			resolve();
-																		});
-																	})
-																	.catch(() => {
-																		currentHelper = helper;
-																		isReady = true;
-																		hideLoading();
-																		setStatus(`${modelName} 加载完成（降级模式，无音频）`);
-																		updateButtons();
-																		resolve();
-																	});
+																fetch(currentAudioFile)
+											.then(r => r.arrayBuffer())
+											.then(buf => {
+											const listener = new THREE.AudioListener();
+											const audio = new THREE.Audio(listener);
+											const ctx = listener.context;
+											ctx.decodeAudioData(buf, (buffer) => {
+											audio.setBuffer(buffer);
+											helper.add(audio, { audio, delayTime: currentAudioDelay });
+											scene.add(audio);
+											scene.add(listener);
+											audioElement = audio;
+											audioListener = listener;
+											musicInfo.textContent = '🎵 ' + builtInDances[danceSelector.value].name;
+											currentHelper = helper;
+											isReady = true;
+											hideLoading();
+											setStatus(`${modelName} 加载完成（降级模式）`);
+											updateButtons();
+											resolve();
+											}, () => {
+											currentHelper = helper;
+											isReady = true;
+											hideLoading();
+											setStatus(`${modelName} 加载完成（降级模式，无音频）`);
+											updateButtons();
+											resolve();
+											});
+											})
+											.catch(() => {
+											currentHelper = helper;
+											isReady = true;
+											hideLoading();
+											setStatus(`${modelName} 加载完成（降级模式，无音频）`);
+											updateButtons();
+											resolve();
+											});
 															},
 															undefined,
 															(err2) => {
@@ -1024,9 +1079,41 @@
 				if (isNaN(index)) return;
 				const model = builtInModels[index];
 				await loadMMDModel(model.url, model.name);
+				const danceIdx = parseInt(danceSelector.value);
+				if (!isNaN(danceIdx) && builtInDances[danceIdx]) {
+					musicInfo.textContent = '🎵 ' + builtInDances[danceIdx].name;
+				}
 			});
 
-			// 本地文件上传
+			// 舞蹈选择
+			danceSelector.addEventListener('change', async () => {
+				const index = parseInt(danceSelector.value);
+				if (isNaN(index) && !danceSelector.value.startsWith('blob:')) return;
+				
+				let vmdFile, audioFile, delay;
+				if (danceSelector.value.startsWith('blob:')) {
+					vmdFile = currentVmdFile;
+					audioFile = currentAudioFile;
+					delay = currentAudioDelay;
+				} else {
+					const dance = builtInDances[index];
+					vmdFile = dance.vmd;
+					audioFile = dance.audio;
+					delay = dance.delay;
+				}
+				
+				currentVmdFile = vmdFile;
+				currentAudioFile = audioFile;
+				currentAudioDelay = delay;
+				
+				// 如果有当前模型，用新舞蹈重新加载
+				const modelIdx = parseInt(modelSelector.value);
+				if (!isNaN(modelIdx) && builtInModels[modelIdx]) {
+					await loadMMDModel(builtInModels[modelIdx].url, builtInModels[modelIdx].name);
+				}
+			});
+
+			// 本地文件上传（MMD 模型）
 			mmdFileInput.addEventListener('change', async (e) => {
 				const file = e.target.files[0];
 				if (!file) return;
@@ -1042,6 +1129,44 @@
 				modelSelector.value = url;
 
 				await loadMMDModel(url, optionName);
+			});
+
+			// 本地 VMD 上传
+			vmdFileInput.addEventListener('change', async (e) => {
+				const file = e.target.files[0];
+				if (!file) return;
+				
+				const url = URL.createObjectURL(file);
+				currentVmdFile = url;
+				
+				// 添加到舞蹈选择器
+				const option = document.createElement('option');
+				option.value = url;
+				option.textContent = `本地 VMD: ${file.name}`;
+				danceSelector.appendChild(option);
+				danceSelector.value = url;
+				
+				// 重新加载当前模型
+				const modelIdx = parseInt(modelSelector.value);
+				if (!isNaN(modelIdx) && builtInModels[modelIdx]) {
+					await loadMMDModel(builtInModels[modelIdx].url, builtInModels[modelIdx].name);
+				}
+			});
+
+			// 本地音频上传
+			audioFileInput.addEventListener('change', async (e) => {
+				const file = e.target.files[0];
+				if (!file) return;
+				
+				const url = URL.createObjectURL(file);
+				currentAudioFile = url;
+				currentAudioDelay = 0;
+				
+				// 重新加载当前模型
+				const modelIdx = parseInt(modelSelector.value);
+				if (!isNaN(modelIdx) && builtInModels[modelIdx]) {
+					await loadMMDModel(builtInModels[modelIdx].url, builtInModels[modelIdx].name);
+				}
 			});
 
 			// 窗口大小调整
@@ -1109,8 +1234,9 @@
 					}
 				});
 
-				// 默认加载第一个模型
+				// 默认加载第一个模型和第一个舞蹈
 				modelSelector.value = '0';
+				danceSelector.value = '0';
 				await loadMMDModel(builtInModels[0].url, builtInModels[0].name);
 				updateButtons();
 			})();
