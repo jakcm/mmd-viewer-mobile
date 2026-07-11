@@ -963,6 +963,8 @@
 			let audioListener = null;
 			let audioElement = null;
 			let loadingId = 0; // 递增计数器，用于忽略过期回调
+			let idleClip = null;
+			let danceClip = null;
 
 			// ===== 舞台 3D 组（异步构建） =====
 			let stageGroup, beamsGroup, monitorsGroup, sphereFill, sphereWireframe;
@@ -1309,6 +1311,8 @@
 				isReady = false;
 				isPlaying = false;
 				isPaused = false;
+				idleClip = null;
+				danceClip = null;
 				updateButtons();
 				const _loadId = ++loadingId; // 记录本次加载 ID，忽略过期回调
 
@@ -1403,6 +1407,23 @@
 													physics: false
 												});
 											}
+
+											// 存储舞蹈动画 clip
+											danceClip = mmd.animation;
+
+											// 加载待机 VMD idle 动画（在后台进行，不影响主流程）
+											loader.loadAnimation('./vmd/idle.vmd', mesh, (clip) => {
+												idleClip = clip;
+												const mixer = helper.objects.get(mesh)?.mixer;
+												if (mixer) {
+													const danceAct = mixer.clipAction(danceClip);
+													danceAct.setEffectiveWeight(0); // 舞蹈不可见，时间继续推进
+													const idleAct = mixer.clipAction(idleClip);
+													idleAct.play(); // 开始播放待机（weight=1 默认）
+												}
+											}, null, (err) => {
+												console.warn('Idle VMD 加载失败（不影响主功能）:', err);
+											});
 
 							// 加载音频（手动 fetch + decode，处理 AudioContext 挂起问题）
 							fetch(currentAudioFile)
@@ -1559,6 +1580,8 @@
 				}
 
 				if (isPlaying && isPaused) {
+					// 从暂停恢复：舞蹈 mixer 时间位置一直保留
+					switchToDance();
 					if (audioElement) audioElement.play();
 					isPaused = false;
 					updatePlayToggleIcon();
@@ -1569,7 +1592,8 @@
 					return;
 				}
 
-				// 开始播放
+				// 首次播放：切换 mixer 到舞蹈（从头开始）
+				switchToDance(true);
 				isPlaying = true;
 				isPaused = false;
 
@@ -1581,13 +1605,44 @@
 				updatePlayToggleIcon();
 			}
 
+			// ===== 切换 mixer 到待机动画 =====
+			function switchToIdle() {
+				if (!currentMesh || !currentHelper || !idleClip) return;
+				const mixer = currentHelper.objects.get(currentMesh)?.mixer;
+				if (!mixer || !danceClip) return;
+				const danceAct = mixer.clipAction(danceClip);
+				const idleAct = mixer.clipAction(idleClip);
+				danceAct.setEffectiveWeight(0);
+				idleAct.setEffectiveWeight(1);
+				if (!idleAct.isRunning()) idleAct.play();
+			}
+
+			// ===== 切换 mixer 到舞蹈动画 =====
+			function switchToDance(resetTime) {
+				if (!currentMesh || !currentHelper || !danceClip) return;
+				const mixer = currentHelper.objects.get(currentMesh)?.mixer;
+				if (!mixer) return;
+				const danceAct = mixer.clipAction(danceClip);
+				const idleAct = idleClip ? mixer.clipAction(idleClip) : null;
+				if (resetTime) {
+					danceAct.reset();
+				}
+				danceAct.setEffectiveWeight(1);
+				if (!danceAct.isRunning()) danceAct.play();
+				if (idleAct) idleAct.setEffectiveWeight(0);
+			}
+
 			function pauseAnimation() {
 				if (!isPlaying) return;
 
 				if (!isPaused) {
+					// 暂停：切换到待机（舞蹈时间位置保留）
+					switchToIdle();
 					if (audioElement) audioElement.pause();
 					isPaused = true;
 				} else {
+					// 恢复：切换到舞蹈（从上次位置继续）
+					switchToDance(false);
 					if (audioElement) audioElement.play();
 					isPaused = false;
 				}
@@ -1737,8 +1792,8 @@
 
 				const delta = clock.getDelta();
 
-				// 更新 MMD 动画（仅在播放状态）
-				if (isReady && currentHelper && isPlaying && !isPaused) {
+				// 更新 MMD 动画（始终更新，由 mixer 的 weight 控制 idle/dance）
+				if (isReady && currentHelper) {
 					currentHelper.update(delta);
 				}
 
@@ -2714,7 +2769,7 @@
 			animate = function() {
 				requestAnimationFrame(animate);
 				const delta = clock.getDelta();
-				if (isReady && currentHelper && isPlaying && !isPaused) {
+				if (isReady && currentHelper) {
 					currentHelper.update(delta);
 				}
 				// tick 唇形合成器（在 VMD 动画更新后，渲染前）
