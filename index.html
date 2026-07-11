@@ -1389,19 +1389,23 @@
 											mesh.castShadow = true;
 											mesh.receiveShadow = true;
 
-											// 修复：MMDToonMaterial (RawShaderMaterial) 的 shader 缺少 MORPHTARGETS_COUNT
-											// define 导致某些模型编译失败。统一删除 morphAttributes 后手工重建：
-											// 保留 morphTargetDictionary + morphTargetInfluences 供唇形同步使用
-											if (mesh.geometry?.morphAttributes) {
-												// 备份 morph 数据
-												const dict = { ...(mesh.morphTargetDictionary || {}) };
-												const infs = [...(mesh.morphTargetInfluences || [])];
-												delete mesh.geometry.morphAttributes;
-												// 重建：设一个空对象让 PropertyBinding 不报错
-												mesh.geometry.morphAttributes = {};
-												// 恢复 morph 数据
-												mesh.morphTargetDictionary = dict;
-												mesh.morphTargetInfluences = infs;
+											// 修复：MMDToonMaterial (RawShaderMaterial) 的 shader 编译时 Three.js 未注入
+											// MORPHTARGETS_COUNT define。使用 onBeforeCompile hook 在编译前加入缺失值
+											if (mesh.geometry?.morphAttributes?.position?.length > 0) {
+												const mc = mesh.geometry.morphAttributes.position.length;
+												const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+												for (const mat of mats) {
+													if (mat.type === 'MMDToonMaterial') {
+														const orig = mat.onBeforeCompile;
+														mat.onBeforeCompile = function(shader) {
+															if (!shader.defines.MORPHTARGETS_COUNT) {
+																shader.defines.MORPHTARGETS_COUNT = String(mc);
+																shader.defines.MORPHTARGETS_TEXTURE_STRIDE = '1';
+															}
+															if (orig) orig.call(this, shader);
+														};
+													}
+												}
 											}
 
 											// 保持材质自发光强度不变（PMX 模型的 emissive 用于眼睛、饰品等发光效果）
