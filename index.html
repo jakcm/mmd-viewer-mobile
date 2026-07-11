@@ -8,6 +8,18 @@
 			content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
 		/>
 		<style>
+			.version-badge {
+				position: fixed;
+				top: 18px;
+				left: 16px;
+				font-size: 11px;
+				color: rgba(255,255,255,0.25);
+				font-family: monospace;
+				pointer-events: none;
+				z-index: 199;
+				user-select: none;
+				-webkit-user-select: none;
+			}
 			* {
 				margin: 0;
 				padding: 0;
@@ -650,13 +662,14 @@
 	</head>
 
 	<body>
-		<!-- 加载遮罩 -->
+		<div class="version-badge" id="versionBadge"></div>
+
 		<div class="loading-overlay" id="loadingOverlay">
 			<div class="spinner"></div>
 			<div class="loading-text" id="loadingText">正在加载资源...</div>
 		</div>
 
-		<!-- 悬浮菜单按钮 -->
+		<!-- ===== 右上角菜单开关 ===== -->
 		<button class="menu-toggle" id="menuToggle" aria-label="菜单">
 			<svg id="menuIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
 				<line x1="3" y1="6" x2="21" y2="6"/>
@@ -1448,6 +1461,8 @@
 											audio: audio,
 											delayTime: currentAudioDelay
 										});
+										// MMDAnimationHelper 内部自动调用了 source.start(0)，立即暂停
+										audio.pause();
 
 										scene.add(audio);
 										scene.add(listener);
@@ -1516,6 +1531,7 @@
 											ctx.decodeAudioData(buf, (buffer) => {
 											audio.setBuffer(buffer);
 											helper.add(audio, { audio, delayTime: currentAudioDelay });
+											audio.pause();
 											scene.add(audio);
 											scene.add(listener);
 											audioElement = audio;
@@ -2841,6 +2857,9 @@
 					showLoading('加载失败: ' + initErr.message, true);
 				}
 			})();
+
+			// 版本号
+			document.getElementById('versionBadge').textContent = '2026-07-11 16:30';
 		</script>
 	</body>
 </html>
