@@ -883,6 +883,11 @@
 					name: '尘',
 					url: './models/尘/尘.pmx',
 					type: 'pmx'
+				},
+				{
+					name: '海上 - 庚辰（海上的私语）',
+					url: './models/海上/庚辰6.0.pmx',
+					type: 'pmx'
 				}
 			];
 
@@ -1159,7 +1164,7 @@
 				if (loader._loadTexture) {
 					const originalLoadTexture = loader._loadTexture.bind(loader);
 					loader._loadTexture = function(filePath, textures, params, onProgress, onError) {
-						const fixedPath = typeof filePath === 'string' ? filePath.replace(/\\/g, '/') : filePath;
+						const fixedPath = typeof filePath === 'string' ? filePath.replace(/\/g, '/') : filePath;
 						return originalLoadTexture(fixedPath, textures, params, onProgress, onError);
 					};
 				}
