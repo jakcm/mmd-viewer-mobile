@@ -1389,6 +1389,17 @@
 											mesh.castShadow = true;
 											mesh.receiveShadow = true;
 
+											// 修复：MMDToonMaterial 的 raw shader 不兼容 Three.js morph target 系统
+											// 导致 MORPHTARGETS_COUNT 未定义 → shader 编译失败（如白蛇缘起模型）
+											// 仅禁用材质的 morphTargets 避免 shader 出错，保留 morphTargetDictionary 供唇形同步使用
+											const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+											for (const mat of mats) {
+												if (mat.type === 'MMDToonMaterial' && mat.morphTargets) {
+													mat.morphTargets = false;
+													mat.needsUpdate = true;
+												}
+											}
+
 											// 保持材质自发光强度不变（PMX 模型的 emissive 用于眼睛、饰品等发光效果）
 											const materials = mesh.material;
 
