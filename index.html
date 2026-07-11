@@ -1384,25 +1384,6 @@
 											mesh.castShadow = true;
 											mesh.receiveShadow = true;
 
-											// 修复：MMDToonMaterial (RawShaderMaterial) 的 shader 编译时 Three.js 未注入
-											// MORPHTARGETS_COUNT define。使用 onBeforeCompile hook 在编译前加入缺失值
-											if (mesh.geometry?.morphAttributes?.position?.length > 0) {
-												const mc = mesh.geometry.morphAttributes.position.length;
-												const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-												for (const mat of mats) {
-													if (mat.type === 'MMDToonMaterial') {
-														const orig = mat.onBeforeCompile;
-														mat.onBeforeCompile = function(shader) {
-															if (!shader.defines.MORPHTARGETS_COUNT) {
-																shader.defines.MORPHTARGETS_COUNT = String(mc);
-																shader.defines.MORPHTARGETS_TEXTURE_STRIDE = '1';
-															}
-															if (orig) orig.call(this, shader);
-														};
-													}
-												}
-											}
-
 											// 保持材质自发光强度不变（PMX 模型的 emissive 用于眼睛、饰品等发光效果）
 											const materials = mesh.material;
 
