@@ -8,18 +8,6 @@
 			content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
 		/>
 		<style>
-			.version-badge {
-				position: fixed;
-				top: 18px;
-				left: 16px;
-				font-size: 11px;
-				color: rgba(255,255,255,0.25);
-				font-family: monospace;
-				pointer-events: none;
-				z-index: 199;
-				user-select: none;
-				-webkit-user-select: none;
-			}
 			* {
 				margin: 0;
 				padding: 0;
@@ -662,8 +650,6 @@
 	</head>
 
 	<body>
-		<div class="version-badge" id="versionBadge"></div>
-
 		<div class="loading-overlay" id="loadingOverlay">
 			<div class="spinner"></div>
 			<div class="loading-text" id="loadingText">正在加载资源...</div>
@@ -690,7 +676,9 @@
 
 		<!-- 控制面板 -->
 		<div class="controls-panel" id="controlsPanel">
-			<!-- 模型选择 -->
+			<div style="font-size:11px;color:rgba(255,255,255,0.25);font-family:monospace;pointer-events:none;margin-bottom:8px;" id="versionBadge"></div>
+
+								<!-- 模型选择 -->
 								<div class="panel-section">
 									<div class="section-title">模型选择</div>
 									<select class="model-selector" id="modelSelector">
@@ -978,6 +966,7 @@
 			let loadingId = 0; // 递增计数器，用于忽略过期回调
 			let idleClip = null;
 			let danceClip = null;
+			let audioRegisteredInHelper = false;
 
 			// ===== 舞台 3D 组（异步构建） =====
 			let stageGroup, beamsGroup, monitorsGroup, sphereFill, sphereWireframe;
@@ -1457,18 +1446,11 @@
 									}).then(buffer => {
 										audio.setBuffer(buffer);
 
-										helper.add(audio, {
-											audio: audio,
-											delayTime: currentAudioDelay
-										});
-										// MMDAnimationHelper 内部自动调用了 source.start(0)，立即暂停
-										audio.pause();
-
-										scene.add(audio);
-										scene.add(listener);
-
+										// 不注册到 helper（MMDAnimationHelper._initAudio 会自动 source.start(0) 播放）
+										// 等用户点击播放时再注册
 										audioElement = audio;
 										audioListener = listener;
+										audioRegisteredInHelper = false;
 										currentHelper = helper;
 										isReady = true;
 
@@ -1530,12 +1512,10 @@
 											const ctx = listener.context;
 											ctx.decodeAudioData(buf, (buffer) => {
 											audio.setBuffer(buffer);
-											helper.add(audio, { audio, delayTime: currentAudioDelay });
-											audio.pause();
-											scene.add(audio);
-											scene.add(listener);
+											// 不注册到 helper，等用户点击播放时再注册
 											audioElement = audio;
 											audioListener = listener;
+											audioRegisteredInHelper = false;
 											currentHelper = helper;
 											isReady = true;
 											hideLoading();
@@ -1646,6 +1626,13 @@
 				danceAct.setEffectiveWeight(1);
 				if (!danceAct.isRunning()) danceAct.play();
 				if (idleAct) idleAct.setEffectiveWeight(0);
+				// 首次播放时将音频注册到 helper（注册会自动 source.start，先暂停）
+				if (!audioRegisteredInHelper && audioElement) {
+					audioElement.pause(); // 确保静音
+					currentHelper.add(audioElement, { audio: audioElement, delayTime: currentAudioDelay });
+					audioElement.pause(); // 注册后再停一次（_initAudio 会 start）
+					audioRegisteredInHelper = true;
+				}
 			}
 
 			function pauseAnimation() {
