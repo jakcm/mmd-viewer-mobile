@@ -966,7 +966,6 @@
 			let loadingId = 0; // 递增计数器，用于忽略过期回调
 			let idleClip = null;
 			let danceClip = null;
-			let audioRegisteredInHelper = false;
 
 			// ===== 舞台 3D 组（异步构建） =====
 			let stageGroup, beamsGroup, monitorsGroup, sphereFill, sphereWireframe;
@@ -1450,8 +1449,7 @@
 										// 等用户点击播放时再注册
 										audioElement = audio;
 										audioListener = listener;
-										audioRegisteredInHelper = false;
-										currentHelper = helper;
+															currentHelper = helper;
 										isReady = true;
 
 										hideLoading();
@@ -1515,8 +1513,7 @@
 											// 不注册到 helper，等用户点击播放时再注册
 											audioElement = audio;
 											audioListener = listener;
-											audioRegisteredInHelper = false;
-											currentHelper = helper;
+																	currentHelper = helper;
 											isReady = true;
 											hideLoading();
 											setStatus(`${modelName} 加载完成（降级模式）`);
@@ -1593,9 +1590,13 @@
 				isPlaying = true;
 				isPaused = false;
 
-				// 播放音频（浏览器需要用户交互才能播放音频）
-				if (audioElement && !audioElement.isPlaying) {
-					audioElement.play();
+				// 播放音频（delayTime 同步动画和音频）
+				if (audioElement) {
+					if (currentAudioDelay > 0) {
+						setTimeout(() => { if (isPlaying && !isPaused) audioElement.play(); }, currentAudioDelay * 1000);
+					} else {
+						audioElement.play();
+					}
 				}
 
 				updatePlayToggleIcon();
@@ -1626,13 +1627,6 @@
 				danceAct.setEffectiveWeight(1);
 				if (!danceAct.isRunning()) danceAct.play();
 				if (idleAct) idleAct.setEffectiveWeight(0);
-				// 首次播放时将音频注册到 helper（注册会自动 source.start，先暂停）
-				if (!audioRegisteredInHelper && audioElement) {
-					audioElement.pause(); // 确保静音
-					currentHelper.add(audioElement, { audio: audioElement, delayTime: currentAudioDelay });
-					audioElement.pause(); // 注册后再停一次（_initAudio 会 start）
-					audioRegisteredInHelper = true;
-				}
 			}
 
 			function pauseAnimation() {
